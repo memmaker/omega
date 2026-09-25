@@ -1,4 +1,4 @@
-# Omega 0.80.2 — RVIP import (2026-09-25)
+# Omega 0.80.2 — RVIP import (2026-09-26)
 
 Case O (curses, no Rogue/Moria lineage). `git log`: upstream, then the port.
 
@@ -15,8 +15,14 @@ Case O (curses, no Rogue/Moria lineage). `git log`: upstream, then the port.
   `A_TILE` + tile in bits 18+; omega.js only blits, scrolled round the player;
   *Tiles* button, `localStorage`. X11 (`be_x11.c`) draws the same from
   `port/tiles.bmp` (Kinder's BMP as is); `OMEGA_TILES=0 ./play.sh` = text.
-- Live: https://ruzzoli.de/roguelikes/omega/ (deployed 2026-09-25).
+- Web messages: `morewait()` never waits (`auto_more`, RVIP 3d); the message
+  history is the log window, the live message rows go to `RvipWM.prompt`
+  (rvip-wm.js, `js_key(at_cmd)` hides it on a command key). `exit()` is
+  `wc_exit` (`-Dexit=` in build.sh): Emscripten runs no atexit handlers, so
+  it shows the game-over overlay, unlinks the autosave and idles.
+- Live: https://ruzzoli.de/roguelikes/omega/ (deployed 2026-09-26).
 - Not done: sound (6b), mouse.
 - Tested: char creation, city, countryside travel, temple explore + doors,
   menu, item menu quaff + reopen, save/restore, ASan run (clean), web
-  menu/autosave/restore in the browser.
+  menu/autosave/restore in the browser, starving to death in town (RIP
+  screen, game-over overlay, fresh game on reload).
