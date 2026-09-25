@@ -43,7 +43,7 @@
 	}
 
 	/* ---------- drawing: the whole screen (cv) and one canvas per pane, all from the game's cells ---------- */
-	var MAP = 1, SIDE = 2, STAT = 3, MSG = 4, PANE_BOX = { 1: 'map', 2: 'side', 3: 'stat', 4: 'msgcv' }, P = {}, popup = true;
+	var MAP = 1, SIDE = 2, STAT = 3, MSG = 4, PANE_BOX = { 1: 'map', 2: 'side', 3: 'stat', 4: 'msgcv' }, P = {}, popup = true, msgT = '';
 	function measure() {
 		ctx.font = px + 'px ' + FONT;
 		cw = Math.ceil(ctx.measureText('M').width); ch = Math.ceil(px * 1.2);
@@ -87,7 +87,10 @@
 				if (p === MAP && tilesOn && t-- && sheet.complete && sheet.naturalWidth) g.drawImage(sheet, t % 128 * 32, (t >> 7) * 32, 32, 32, x * w, y * ch, w, ch);
 				else cell(g, v, x * w, y * ch, w);
 			}
-		if (p === MSG) c.parentNode.style.height = q.r * ch + 'px';
+		if (p === MSG) {   /* shown while the game writes to it; a keypress hides it until the line changes */
+			var t = String.fromCharCode.apply(null, q.buf.map(function (v) { return v & 0xff || 32; })).trim();
+			if (t !== msgT) { msgT = t; c.parentNode.hidden = !t; }
+		}
 		if (p !== MAP) return;
 		var cy = cur.y - q.y, cx = cur.x - q.x;
 		if (cy >= 0 && cy < q.r && cx >= 0 && cx < q.c) {
@@ -340,6 +343,7 @@
 
 	window.addEventListener('resize', function () { if (wm) wm.apply(); });
 	document.addEventListener('keydown', onKey);
+	document.addEventListener('keydown', function () { $('msgcv').hidden = true; });
 	document.addEventListener('DOMContentLoaded', function () {
 		cv = document.createElement('canvas');
 		ctx = cv.getContext('2d');
