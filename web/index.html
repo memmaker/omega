@@ -25,13 +25,17 @@
 		background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 14px; max-width: 90vw; }
 	#status.error { border-color: #b44; color: #f99; }
 
-		#game { position: absolute; left: 0; right: 300px; top: 32px; bottom: 0; overflow: auto; background: #000;
-		display: flex; align-items: flex-start; justify-content: center; }
-	#game canvas { display: block; }
-	#log { position: absolute; right: 0; width: 300px; top: 32px; bottom: 0; overflow: auto; padding: 6px 8px; box-sizing: border-box;
-		background: var(--panel); border-left: 1px solid var(--line); font: 13px/1.4 ui-monospace, Menlo, monospace; white-space: pre-wrap; }
+	#game { position: absolute; left: 0; right: 0; top: 32px; bottom: 0; overflow: hidden; background: var(--gut); }
+	.win { position: absolute; background: #000; border: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden; }
+	.win > .t { flex: none; display: flex; align-items: center; font-size: 11px; height: 20px; padding: 0 2px 0 6px;
+		background: var(--panel); color: var(--dim); border-bottom: 1px solid var(--line); }
+	.win > .t .name { flex: 1; }
+	.win > .body { flex: 1; min-height: 0; overflow: hidden; position: relative; }
+	.win > .body canvas { display: block; }
+	#log, #inv { overflow-y: auto; padding: 4px 8px; font: 13px/1.4 ui-monospace, Menlo, monospace; white-space: pre-wrap; }
 	#log div + div { border-top: 1px solid var(--line); }
-	@media (max-width: 700px) { #log { display: none; } #game { right: 0 !important; } }
+	#full { position: absolute; inset: 0; z-index: 3; background: #000; }
+	#full[hidden] { display: none; }
 	#overlay, #help { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: flex;
 		align-items: center; justify-content: center; z-index: 10; }
 	#overlay[hidden], #help[hidden], #status[hidden], #game[hidden] { display: none; }
@@ -73,6 +77,7 @@
 	<button id="btn-help" title="Game guide, controls and saving">Help</button>
 	<span class="sep"></span>
 	<button id="btn-tiles" class="on" title="Tiles or text map">Tiles</button>
+	<button id="btn-layout" title="Windows: layout, show and hide">Windows ▾</button>
 	<button id="btn-zoom-out" title="Smaller text">Zoom −</button>
 	<button id="btn-zoom-in" title="Bigger text">Zoom +</button>
 	<span class="sep"></span>
@@ -86,8 +91,15 @@
 
 <div id="status">Loading Omega…</div>
 
-<div id="log" aria-label="Messages"></div>
-<div id="game" hidden><canvas></canvas></div>
+<div id="game" hidden>
+	<div class="win" id="t-map"><div class="t"><span class="name">Map</span></div><div class="body" id="map"><canvas></canvas></div></div>
+	<div class="win" id="t-side"><div class="t"><span class="name">Side panel</span></div><div class="body" id="side"><canvas></canvas></div></div>
+	<div class="win" id="t-stat"><div class="t"><span class="name">Status</span></div><div class="body" id="stat"><canvas></canvas></div></div>
+	<div class="win" id="t-msg"><div class="t"><span class="name">Messages</span></div><div class="body" id="log" aria-label="Messages"></div></div>
+	<div class="win" id="t-inv"><div class="t"><span class="name">Inventory</span></div><div class="body" id="inv"></div></div>
+	<div class="win" id="t-vis"><div class="t"><span class="name">Visible</span></div><div class="body wm-list" id="vis"></div></div>
+	<div id="full"><canvas></canvas></div>
+</div>
 
 <div id="help" hidden>
 	<div class="panel" role="dialog" aria-label="Omega guide">
@@ -104,6 +116,7 @@
 	</div>
 </div>
 
+<script src="rvip-wm.js"></script>
 <script src="omega.js"></script>
 <script src="omega-core.js"></script>
 </body>

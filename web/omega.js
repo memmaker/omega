@@ -7,7 +7,7 @@
 (function () {
 	'use strict';
 
-	var DIR = '/save', SAVE = DIR + '/omega.sav', ZOOM_FILE = DIR + '/web-zoom.json';
+	var DIR = '/save', SAVE = DIR + '/omega.sav';
 	var FONT = '"DejaVu Sans Mono", Menlo, Consolas, "Liberation Mono", monospace';
 	var PAL = ['#000000', '#0000aa', '#00aa00', '#00aaaa', '#aa0000', '#aa00aa', '#aa5500', '#aaaaaa',
 		'#555555', '#5555ff', '#55ff55', '#55ffff', '#ff5555', '#ff55ff', '#ffff55', '#ffffff'];
@@ -24,7 +24,7 @@
 
 	var events = [], running = false, lastSave = 0;
 	var cols = 80, rows = 24, scr = null, cur = { y: 0, x: 0 };
-	var auto = true, cv, ctx, px = 18, cw = 11, ch = 22, dirty = true;
+	var auto = true, cv, ctx, wm = null, rects = {}, LAYOUT = '/save/web-layout.json', L = { px: 0, font: 13, wm: null }, px = 18, cw = 11, ch = 22, dirty = true;
 	var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
 
 	/* message log: new text on the message rows goes to #log */
@@ -58,13 +58,60 @@
 		ctx.textBaseline = 'top';
 		dirty = true;
 	}
+	/* biggest font that shows the map (single window: the whole screen) in the map window */
 	function fit() {
-		var g = $('game'), best = 8;
+		var b = $('map'), best = 8, one = !rects.side && !rects.stat, w = one ? cols : MAPW, h = one ? rows : rows - 6;
 		for (var p = 8; p <= 40; p++) {
 			ctx.font = p + 'px ' + FONT;
-			if (Math.ceil(ctx.measureText('M').width) * cols <= g.clientWidth && Math.ceil(p * 1.2) * rows <= g.clientHeight) best = p;
+			if (Math.ceil(ctx.measureText('M').width) * w <= b.clientWidth && Math.ceil(p * 1.2) * h <= b.clientHeight) best = p;
 		}
 		return best;
+	}
+	/* windows are crops of the offscreen screen canvas; bigger than the window = centred on the cursor */
+	function blit(id, sx, sy, sw, sh, fx, fy) {
+		var b = $(id), c = b.firstChild, W = b.clientWidth, H = b.clientHeight, s = Math.min(1, W / sw, H / sh);
+		if (id !== 'full') s = 1;
+		if (c.width !== W * dpr || c.height !== H * dpr) { c.width = W * dpr; c.height = H * dpr; c.style.width = W + 'px'; c.style.height = H + 'px'; }
+		var g = c.getContext('2d'), ox = sw * s <= W ? (sw * s - W) / 2 : Math.max(0, Math.min(sw - W, fx - W / 2)),
+			oy = sh * s <= H ? 0 : Math.max(0, Math.min(sh - H, fy - H / 2));
+		g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#000'; g.fillRect(0, 0, c.width, c.height);
+		g.imageSmoothingEnabled = s < 1;
+		g.setTransform(dpr * s, 0, 0, dpr * s, -ox * dpr, -oy * dpr);
+		g.drawImage(cv, sx * dpr, sy * dpr, sw * dpr, sh * dpr, 0, 0, sw, sh);
+	}
+	function show() {
+		if (!wm) return;
+		var SL = rows - 6, one = !rects.side && !rects.stat, mapOn = false, fx = cur.x * cw, fy = (cur.y - 3) * ch;
+		for (var y = 3; y < SL + 3; y++) if (scr[y * cols] & A_TILE) mapOn = true;
+		if (tilesOn && cur.x < MAPW) fx = (cur.x - tox) * ch;
+		$('full').hidden = one || mapOn;
+		if (!$('full').hidden) blit('full', 0, 0, cols * cw, rows * ch, 0, 0);
+		if (one) blit('map', 0, 0, cols * cw, rows * ch, cur.x * cw, cur.y * ch);
+		else if (rects.map) blit('map', 0, 3 * ch, MAPW * cw, SL * ch, fx, fy);
+		if (rects.side) blit('side', 65 * cw, 3 * ch, 15 * cw, SL * ch, 0, 0);
+		if (rects.stat) blit('stat', 0, (SL + 3) * ch, cols * cw, 3 * ch, fx, 0);
+	}
+	function saveLayout() { try { Module.FS.writeFile(LAYOUT, JSON.stringify(L)); syncFiles(); } catch (e) { } }
+	function fonts() { ['log', 'inv', 'vis'].forEach(function (id) { $(id).style.fontSize = L.font + 'px'; }); }
+	/* the shared tiling window manager (rvip-wm.js, RVIP.md 5b) */
+	function makeWM() {
+		try { var s = JSON.parse(Module.FS.readFile(LAYOUT, { encoding: 'utf8' })); if (s) L = { px: s.px | 0, font: s.font || 13, wm: s.wm }; } catch (e) { }
+		if (L.px >= 8 && L.px <= 40) { px = L.px; auto = false; measure(); }
+		fonts();
+		wm = RvipWM({
+			area: $('game'), menu: $('btn-layout'),
+			wins: [{ id: 'map', title: 'Map' }, { id: 'side', title: 'Side panel' }, { id: 'stat', title: 'Status' },
+				{ id: 'msg', title: 'Messages' }, { id: 'inv', title: 'Inventory' }, { id: 'vis', title: 'Visible' }],
+			multi: { d: 'h', r: 0.68, a: { d: 'v', r: 0.84, a: { d: 'h', r: 0.82, a: 'map', b: 'side' }, b: 'stat' },
+				b: { d: 'v', r: 0.35, a: 'msg', b: { d: 'v', r: 0.6, a: 'inv', b: 'vis' } } },
+			single: 'map',
+			state: L.wm, noFont: 'map',
+			save: function (st) { L.wm = st; saveLayout(); },
+			layout: function (r) { rects = r; if (auto) { px = fit(); measure(); } dirty = true; draw(); },
+			font: function (id, d) { L.font = Math.max(8, Math.min(28, L.font + d)); fonts(); saveLayout(); },
+			onReset: function () { auto = true; L.px = 0; L.font = 13; L.wm = wm.state(); fonts(); px = fit(); measure(); draw(); saveLayout(); }
+		});
+		wm.apply();
 	}
 	function draw() {
 		if (!dirty || !scr) return;
@@ -80,9 +127,8 @@
 				if (c > 32) { ctx.fillStyle = PAL[fg]; ctx.fillText(String.fromCharCode(c), x * cw, y * ch + (ch - px) / 2); }
 			}
 		for (var y = 0; y < 2; y++) { var s = ''; for (var x = 0; x < cols; x++) s += String.fromCharCode(scr[y * cols + x] & 0xff || 32); logRow(y, s); }
-		if (tilesOn && drawTiles()) return;
-		ctx.fillStyle = PAL[7];
-		ctx.fillRect(cur.x * cw, cur.y * ch + ch - 2, cw, 2);
+		if (!(tilesOn && drawTiles())) { ctx.fillStyle = PAL[7]; ctx.fillRect(cur.x * cw, cur.y * ch + ch - 2, cw, 2); }
+		show();
 	}
 	/* true when the cursor is on the map (drawn here as a box) */
 	function drawTiles() {
@@ -114,24 +160,27 @@
 		auto = false;
 		px = Math.max(8, Math.min(40, px + d));
 		measure(); draw();
-		try { Module.FS.writeFile(ZOOM_FILE, JSON.stringify({ px: px })); syncFiles(); } catch (e) { }
+		L.px = px; saveLayout();
 	}
 
 	var om = {
 		init: function (c, r) {
 			cols = c; rows = r; scr = new Uint32Array(c * r);
-			try { px = JSON.parse(Module.FS.readFile(ZOOM_FILE, { encoding: 'utf8' })).px || 0; } catch (e) { px = 0; }
 			$('game').hidden = false;
-			auto = !px;
-			if (auto) px = 16;
-			measure();
-			/* layout is ready only after this frame */
-			requestAnimationFrame(function () { if (auto) { px = fit(); measure(); draw(); } });
+			px = 16; measure(); makeWM();
 		},
 		put: function (y, x, v) { scr[y * cols + x] = v; dirty = true; },
 		cursor: function (y, x) { cur.y = y; cur.x = x; dirty = true; },
 		flush: function () { draw(); },
-		lists: function () { },   /* Inventory / Visible windows: WM conversion pending */
+		lists: function (inv, vis) {
+			$('inv').innerHTML = '';
+			inv.split('\n').forEach(function (l) {
+				if (!l) return;
+				var t = l.split('\t'), d = document.createElement('div');
+				d.textContent = t[1]; d.style.color = PAL[+t[0] || 7]; $('inv').appendChild(d);
+			});
+			RvipWM.visible($('vis'), vis.replace(/\t(\d+)$/gm, function (m, c) { return '\t' + PAL[+c || 7]; }));
+		},
 		key: function () { return events.length ? events.shift() : -1; },
 		/* autosave at most every 2 s, and when the page is hidden */
 		wantSave: function () {
@@ -275,10 +324,10 @@
 	});
 	document.addEventListener('visibilitychange', function () { if (document.hidden) wantSaveFlag = true; });
 
-	window.addEventListener('resize', function () { if (auto && scr) { px = fit(); measure(); draw(); } });
+	window.addEventListener('resize', function () { if (wm) wm.apply(); });
 	document.addEventListener('keydown', onKey);
 	document.addEventListener('DOMContentLoaded', function () {
-		cv = document.querySelector('#game canvas');
+		cv = document.createElement('canvas');
 		ctx = cv.getContext('2d');
 		$('btn-export').onclick = exportSave;
 		$('btn-import').onclick = function () { $('import-file').click(); };
