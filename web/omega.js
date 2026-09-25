@@ -27,6 +27,20 @@
 	var auto = true, cv, ctx, px = 18, cw = 11, ch = 22, dirty = true;
 	var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
 
+	/* message log: new text on the message rows goes to #log */
+	var logRows = {}, logTail = [];
+	function logRow(y, s) {
+		s = s.replace(/[^ -~]/g, ' ').trim();
+		if (logRows[y] === s) return;
+		logRows[y] = s;
+		/* ponytail: rows that scroll up re-show old text; skip what the last 3 lines already hold */
+		if (!/[A-Za-z]{2}/.test(s) || logTail.indexOf(s) >= 0) return;
+		logTail.push(s); if (logTail.length > 3) logTail.shift();
+		var l = $('log'), d = document.createElement('div'), end = l.scrollTop + l.clientHeight >= l.scrollHeight - 4;
+		d.textContent = s; l.appendChild(d);
+		if (l.childNodes.length > 500) l.removeChild(l.firstChild);
+		if (end) l.scrollTop = l.scrollHeight;
+	}
 	function $(id) { return document.getElementById(id); }
 	function status(msg, isError) {
 		var s = $('status');
@@ -65,6 +79,7 @@
 				if (bg) { ctx.fillStyle = PAL[bg]; ctx.fillRect(x * cw, y * ch, cw, ch); }
 				if (c > 32) { ctx.fillStyle = PAL[fg]; ctx.fillText(String.fromCharCode(c), x * cw, y * ch + (ch - px) / 2); }
 			}
+		for (var y = 0; y < 2; y++) { var s = ''; for (var x = 0; x < cols; x++) s += String.fromCharCode(scr[y * cols + x] & 0xff || 32); logRow(y, s); }
 		if (tilesOn && drawTiles()) return;
 		ctx.fillStyle = PAL[7];
 		ctx.fillRect(cur.x * cw, cur.y * ch + ch - 2, cw, 2);

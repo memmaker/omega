@@ -25,9 +25,13 @@
 		background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 14px; max-width: 90vw; }
 	#status.error { border-color: #b44; color: #f99; }
 
-		#game { position: absolute; left: 0; right: 0; top: 32px; bottom: 0; overflow: auto; background: #000;
+		#game { position: absolute; left: 0; right: 300px; top: 32px; bottom: 0; overflow: auto; background: #000;
 		display: flex; align-items: flex-start; justify-content: center; }
 	#game canvas { display: block; }
+	#log { position: absolute; right: 0; width: 300px; top: 32px; bottom: 0; overflow: auto; padding: 6px 8px; box-sizing: border-box;
+		background: var(--panel); border-left: 1px solid var(--line); font: 13px/1.4 ui-monospace, Menlo, monospace; white-space: pre-wrap; }
+	#log div + div { border-top: 1px solid var(--line); }
+	@media (max-width: 700px) { #log { display: none; } #game { right: 0 !important; } }
 	#overlay, #help { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: flex;
 		align-items: center; justify-content: center; z-index: 10; }
 	#overlay[hidden], #help[hidden], #status[hidden], #game[hidden] { display: none; }
@@ -82,6 +86,7 @@
 
 <div id="status">Loading Omega…</div>
 
+<div id="log" aria-label="Messages"></div>
 <div id="game" hidden><canvas></canvas></div>
 
 <div id="help" hidden>
