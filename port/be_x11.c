@@ -137,6 +137,7 @@ void be_put(int y, int x, chtype ch)
 /* one text window: panes, pop-ups and the message history are the screen itself */
 void be_pane(int p, int y, int x, int r, int c) { }
 void be_pput(int p, int y, int x, chtype ch) { }
+void be_hero(int y, int x) { }
 void be_popup(int on) { }
 void be_msg(const char *s, int append) { }
 

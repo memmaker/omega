@@ -23,7 +23,7 @@
 		End: 49, PageDown: 51, Clear: 53, Enter: 10, Escape: 27, Backspace: 8, Delete: 8, Tab: 9 };
 
 	var events = [], running = false, lastSave = 0;
-	var cols = 80, rows = 24, scr = null, cur = { y: 0, x: 0 };
+	var cols = 80, rows = 24, scr = null, cur = { y: 0, x: 0 }, hero = { y: 0, x: 0 };
 	var auto = true, cv, ctx, wm = null, rects = {}, LAYOUT = '/save/web-layout.json', L = { px: 0, font: 13, wm: null }, px = 18, cw = 11, ch = 22, dirty = true;
 	var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
 
@@ -66,12 +66,8 @@
 		}
 		return best;
 	}
-	/* a canvas bigger than its window scrolls to keep (fx, fy) in the middle; smaller ones are centred */
-	function scroll(c, fx, fy) {
-		var b = c.parentNode, W = b.clientWidth, H = b.clientHeight, w = parseFloat(c.style.width), h = parseFloat(c.style.height);
-		c.style.left = (w <= W ? (W - w) / 2 : -Math.max(0, Math.min(w - W, fx - W / 2))) + 'px';
-		c.style.top = (h <= H ? 0 : -Math.max(0, Math.min(h - H, fy - H / 2))) + 'px';
-	}
+	/* the map camera (RVIP.md W4): (fx, fy) centred, clamped at the edges */
+	function scroll(c, fx, fy) { RvipWM.center(c, fx, fy, parseFloat(c.style.width), parseFloat(c.style.height)); }
 	function cell(g, v, x, y, w) {
 		var c = v & 0xff, fg = v >> 8 & 15, bg = v >> 12 & 7, t;
 		if (!(v & A_COLOR)) fg = 7;
@@ -79,7 +75,6 @@
 		if (bg) { g.fillStyle = PAL[bg]; g.fillRect(x, y, w, ch); }
 		if (c > 32) { g.fillStyle = PAL[fg]; g.fillText(String.fromCharCode(c), x + (w - cw) / 2, y + (ch - px) / 2); }
 	}
-	var mapFx = 0, mapFy = 0;
 	function drawPane(p) {
 		var q = P[p], c = $(PANE_BOX[p]).firstChild, w = p === MAP && tilesOn ? ch : cw;
 		if (!q || !c) return;
@@ -97,8 +92,8 @@
 		var cy = cur.y - q.y, cx = cur.x - q.x;
 		if (cy >= 0 && cy < q.r && cx >= 0 && cx < q.c) {
 			g.strokeStyle = PAL[14]; g.lineWidth = 1; g.strokeRect(cx * w + 0.5, cy * ch + 0.5, w - 1, ch - 1);
-			scroll(c, mapFx = (cx + 0.5) * w, mapFy = (cy + 0.5) * ch);
-		} else scroll(c, mapFx, mapFy);	/* cursor off the map (message line): keep the last view */
+		}
+		scroll(c, (hero.x - q.x + 0.5) * w, (hero.y - q.y + 0.5) * ch);
 	}
 	function saveLayout() { try { Module.FS.writeFile(LAYOUT, JSON.stringify(L)); syncFiles(); } catch (e) { } }
 	function fonts() { ['log', 'inv', 'vis'].forEach(function (id) { $(id).style.fontSize = L.font + 'px'; }); }
@@ -140,7 +135,7 @@
 			for (var x = 0; x < cols; x++)
 				if (!(tilesOn && x < MAPW && scr[y * cols + x] & A_TILE)) cell(ctx, scr[y * cols + x], x * cw, y * ch, cw);
 		if (!(tilesOn && drawTiles())) { ctx.fillStyle = PAL[7]; ctx.fillRect(cur.x * cw, cur.y * ch + ch - 2, cw, 2); }
-		if (one) { size(cv, cols * cw, rows * ch); return scroll(cv, cur.x * cw, cur.y * ch); }
+		if (one) { size(cv, cols * cw, rows * ch); return scroll(cv, (hero.x + 0.5) * cw, (hero.y + 0.5) * ch); }
 		/* pop-up over the panes: the whole screen, scaled down to fit */
 		var b = $('full'), s = Math.min(1, b.clientWidth / (cols * cw), b.clientHeight / (rows * ch));
 		cv.style.width = cols * cw * s + 'px'; cv.style.height = rows * ch * s + 'px';
@@ -149,7 +144,7 @@
 	/* true when the cursor is on the map (drawn here as a box) */
 	function drawTiles() {
 		var T = ch, nx = Math.min(MAPW, Math.floor(MAPW * cw / T)), onMap = cur.x < MAPW && scr[cur.y * cols] & A_TILE;
-		if (onMap) tox = Math.max(0, Math.min(MAPW - nx, cur.x - (nx >> 1)));
+		tox = Math.max(0, Math.min(MAPW - nx, hero.x - (nx >> 1)));
 		ctx.imageSmoothingEnabled = false;
 		for (var y = 0; y < rows; y++) {
 			if (!(scr[y * cols] & A_TILE)) continue;
@@ -185,6 +180,7 @@
 		},
 		put: function (y, x, v) { scr[y * cols + x] = v; dirty = true; },
 		cursor: function (y, x) { cur.y = y; cur.x = x; dirty = true; },
+		hero: function (y, x) { hero.y = y; hero.x = x; dirty = true; },
 		pane: function (p, y, x, r, c) { P[p] = { y: y, x: x, r: r, c: c, buf: new Uint32Array(r * c) }; dirty = true; },
 		pput: function (p, y, x, v) { P[p].buf[y * P[p].c + x] = v; dirty = true; },
 		popup: function (on) { if (popup !== !!on) { popup = !!on; dirty = true; } },

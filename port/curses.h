@@ -112,6 +112,7 @@ void be_pput(int pane, int y, int x, chtype ch);          /* cell inside the pan
 void be_popup(int on);
 void be_msg(const char *s, int append);
 void be_cursor(int y, int x);
+void be_hero(int y, int x);   /* player's screen cell: the map camera centres on it (RVIP.md W4) */
 void be_flush(void);
 int  be_getkey(int wait);   /* -1 when !wait and nothing queued */
 void be_sleep(int ms);

@@ -469,6 +469,9 @@ void drawplayer()
   }
   lastx = Player.x;
   lasty = Player.y;
+#ifdef OMEGA_SHIM
+  be_hero(Levelw->begy + screenmod(Player.y), Levelw->begx + Player.x);
+#endif
 }
 
 void setlastxy(new_x, new_y) /* used when changing environments */
