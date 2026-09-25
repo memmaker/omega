@@ -1,6 +1,8 @@
-/* X11 frontend for the curses shim: one text window (Omega has no tiles),
- * Xft font, the 16 PC colours Omega's MSDOS build uses.
- * Env: OMEGA_XFT (font, default Menlo), OMEGA_TEXT (px, 18),
+/* X11 frontend for the curses shim: one text window, Xft font, the 16 PC
+ * colours Omega's MSDOS build uses. The map (A_TILE cells) is drawn with
+ * Kinder's WinOmega tiles (port/tiles.bmp, tile from port/tiles.c), square
+ * cells of row height scrolled round the player, as web/omega.js does.
+ * Env: OMEGA_XFT (font, default Menlo), OMEGA_TEXT (px, 18), OMEGA_TILES=0 text, OMEGA_BMP (sheet path),
  * OMEGA_POS "x,y", OMEGA_LINES (rows, >= 24). */
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -20,6 +22,62 @@ static XftDraw *xd;
 static XftFont *fnt;
 static XftColor col[16];
 static int cols, rows, tw, th, cy, cx;
+static chtype *cell;
+static int tiles, mapdirty, tox;
+static unsigned char *bmp;          /* 8-bit sheet, 4096x960, top row first */
+static unsigned bpal[256];
+static XImage *timg[4096];          /* scaled tiles, made when first drawn */
+#define MAPW 64
+
+/* Kinder's 32x32.bmp: 8-bit, uncompressed, bottom-up */
+static int load_bmp(const char *path)
+{
+    unsigned char h[54], q[4];
+    FILE *f = fopen(path, "rb");
+    int i, off;
+    if (!f || fread(h, 1, 54, f) != 54 || h[0] != 'B' || h[28] != 8
+        || (h[18] | h[19] << 8 | h[20] << 16 | h[21] << 24) != 4096
+        || (h[22] | h[23] << 8) != 960) { if (f) fclose(f); return 0; }
+    off = h[10] | h[11] << 8 | h[12] << 16;
+    fseek(f, 14 + (h[14] | h[15] << 8), SEEK_SET);
+    for (i = 0; i < 256 && fread(q, 1, 4, f) == 4; i++) bpal[i] = q[2] << 16 | q[1] << 8 | q[0];
+    bmp = malloc(4096 * 960);
+    fseek(f, off, SEEK_SET);
+    for (i = 959; i >= 0; i--) fread(bmp + i * 4096, 1, 4096, f);
+    fclose(f);
+    return 1;
+}
+
+static XImage *tile_img(int t)
+{
+    int x, y, sx = t % 128 * 32, sy = t / 128 * 32;
+    XImage *im;
+    if (timg[t]) return timg[t];
+    im = XCreateImage(dpy, DefaultVisual(dpy, DefaultScreen(dpy)), DefaultDepth(dpy, DefaultScreen(dpy)),
+                      ZPixmap, 0, malloc(th * th * 4), th, th, 32, 0);
+    for (y = 0; y < th; y++)        /* nearest neighbour */
+        for (x = 0; x < th; x++)
+            XPutPixel(im, x, y, bpal[bmp[(sy + y * 32 / th) * 4096 + sx + x * 32 / th]]);
+    return timg[t] = im;
+}
+
+static void draw_map(void)
+{
+    int y, i, nx = MAPW * tw / th, onmap = cx < MAPW && cell[cy * cols] & A_TILE;
+    if (nx > MAPW) nx = MAPW;
+    if (onmap) tox = cx - nx / 2 < 0 ? 0 : cx - nx / 2 > MAPW - nx ? MAPW - nx : cx - nx / 2;
+    for (y = 0; y < rows; y++) {
+        if (!(cell[y * cols] & A_TILE)) continue;
+        XftDrawRect(xd, &col[0], 0, y * th, MAPW * tw, th);
+        for (i = 0; i < nx; i++) {
+            chtype v = cell[y * cols + tox + i];
+            FcChar8 c = v & A_CHARTEXT;
+            if (v >> 18) XPutImage(dpy, pix, gc, tile_img((v >> 18) - 1), 0, 0, i * th, y * th, th, th);
+            else if (c != ' ')
+                XftDrawString8(xd, &col[v & A_COLOR ? v >> 8 & 15 : 7], fnt, i * th + (th - tw) / 2, y * th + fnt->ascent, &c, 1);
+        }
+    }
+}
 
 static const unsigned char pal[16][3] = {
     {0,0,0}, {0,0,170}, {0,170,0}, {0,170,170}, {170,0,0}, {170,0,170}, {170,85,0}, {170,170,170},
@@ -45,6 +103,8 @@ void be_init(int c, int r)
         XftColorAllocValue(dpy, vis, cm, &rc, &col[i]);
     }
     cols = c; rows = r;
+    cell = calloc(c * r, sizeof *cell);
+    tiles = !((e = getenv("OMEGA_TILES")) && *e == '0') && load_bmp((e = getenv("OMEGA_BMP")) ? e : "port/tiles.bmp");
     if ((e = getenv("OMEGA_POS"))) sscanf(e, "%d,%d", &x, &y);
     win = XCreateSimpleWindow(dpy, DefaultRootWindow(dpy), x, y, c * tw, r * th, 0, 0, 0);
     h.flags = PPosition | USPosition | PMinSize | PMaxSize;
@@ -68,17 +128,25 @@ void be_put(int y, int x, chtype ch)
     int fg = ch >> 8 & 15, bg = ch >> 12 & 7, t;
     if (!(ch & A_COLOR)) fg = 7;    /* plain text: light grey */
     if (ch & A_STANDOUT) { t = fg; fg = bg; bg = t; }
+    cell[y * cols + x] = ch;
+    if (tiles && ch & A_TILE && x < MAPW) { mapdirty = 1; return; }
     XftDrawRect(xd, &col[bg], x * tw, y * th, tw, th);
     if (c != ' ') XftDrawString8(xd, &col[fg], fnt, x * tw, y * th + fnt->ascent, &c, 1);
 }
 
-void be_cursor(int y, int x) { cy = y; cx = x; }
+void be_cursor(int y, int x) { if (y != cy || x != cx) mapdirty = 1; cy = y; cx = x; }
 
 void be_flush(void)
 {
+    if (tiles && mapdirty) { draw_map(); mapdirty = 0; }
     XCopyArea(dpy, pix, win, gc, 0, 0, cols * tw, rows * th, 0, 0);
-    XSetForeground(dpy, gc, col[7].pixel);
-    XFillRectangle(dpy, win, gc, cx * tw, cy * th + th - 2, tw, 2);
+    if (tiles && cx < MAPW && cell[cy * cols] & A_TILE) {
+        XSetForeground(dpy, gc, col[14].pixel);
+        XDrawRectangle(dpy, win, gc, (cx - tox) * th, cy * th, th - 1, th - 1);
+    } else {
+        XSetForeground(dpy, gc, col[7].pixel);
+        XFillRectangle(dpy, win, gc, cx * tw, cy * th + th - 2, tw, 2);
+    }
     XFlush(dpy);
 }
 

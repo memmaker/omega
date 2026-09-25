@@ -4,7 +4,7 @@ cd "$(dirname "$0")"
 D=$(pwd)
 mkdir -p save
 export XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}"
-export HOME="$D/save" OMEGALIB=../omegalib/
+export HOME="$D/save" OMEGALIB=../omegalib/ OMEGA_BMP="$D/port/tiles.bmp"
 export OMEGA_LINES="${OMEGA_LINES:-36}" OMEGA_TEXT="${OMEGA_TEXT:-20}"
 cd save
 [ -f omega.sav ] && exec "$D/omega" omega.sav

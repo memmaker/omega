@@ -13,7 +13,8 @@ Case O (curses, no Rogue/Moria lineage). `git log`: upstream, then the port.
   (`wc_tile`, table = Kinder's `gfxMapData` in `port/map.inc`, plus his
   non-countryside cases: cold blast, incubus/satyr). Levelw cells carry
   `A_TILE` + tile in bits 18+; omega.js only blits, scrolled round the player;
-  *Tiles* button, `localStorage`. X11 stays text.
+  *Tiles* button, `localStorage`. X11 (`be_x11.c`) draws the same from
+  `port/tiles.bmp` (Kinder's BMP as is); `OMEGA_TILES=0 ./play.sh` = text.
 - Live: https://ruzzoli.de/roguelikes/omega/ (deployed 2026-09-25).
 - Not done: sound (6b), mouse.
 - Tested: char creation, city, countryside travel, temple explore + doors,
