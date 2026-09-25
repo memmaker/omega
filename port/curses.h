@@ -19,7 +19,8 @@ typedef unsigned int chtype;
 #define A_COLOR 0x7f00
 #define A_STANDOUT 0x10000
 #define A_REVERSE A_STANDOUT
-#define A_TILE 0x20000        /* cell comes from the map window (web tiles) */
+#define A_TILE 0x20000        /* map window cell; bits 18+ = wc_tile() */
+int wc_tile(int c);
 
 typedef struct _win {
     int maxy, maxx, begy, begx, cury, curx, attr;

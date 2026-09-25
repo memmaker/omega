@@ -9,11 +9,11 @@ Case O (curses, no Rogue/Moria lineage). `git log`: upstream, then the port.
   command1.c, inv.c (`getitem` cursor, `inventory_control` keys), scr.c,
   save.c, command2.c, char.c, defs.h. Help: `omegalib/help12.txt`.
 - Web tiles: David Kinder's WinOmega 32x32 sheet (github.com/DavidKinder/Omega
-  fae6f21, `32x32.bmp` -> `web/tiles.png`), map `web/tiles.js` from its
-  `gfxMapData` via `port/mktiles.c` + `port/map.inc` (`cc -Iport -I. -Iport
-  port/mktiles.c`). Levelw cells carry `A_TILE`; omega.js draws them as square
-  tiles scrolled round the player; *Tiles* button, `localStorage`. X11 text.
-  Skipped: Kinder's two special cases (snowball, succubus colour clash).
+  fae6f21, `32x32.bmp` -> `web/tiles.png`). C picks the tile: `port/tiles.c`
+  (`wc_tile`, table = Kinder's `gfxMapData` in `port/map.inc`, plus his
+  non-countryside cases: cold blast, incubus/satyr). Levelw cells carry
+  `A_TILE` + tile in bits 18+; omega.js only blits, scrolled round the player;
+  *Tiles* button, `localStorage`. X11 stays text.
 - Live: https://ruzzoli.de/roguelikes/omega/ (deployed 2026-09-25).
 - Not done: sound (6b), mouse.
 - Tested: char creation, city, countryside travel, temple explore + doors,

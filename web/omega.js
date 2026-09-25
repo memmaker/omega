@@ -12,7 +12,7 @@
 	var PAL = ['#000000', '#0000aa', '#00aa00', '#00aaaa', '#aa0000', '#aa00aa', '#aa5500', '#aaaaaa',
 		'#555555', '#5555ff', '#55ff55', '#55ffff', '#ff5555', '#ff55ff', '#ffff55', '#ffffff'];
 	var A_COLOR = 0x7f00, A_STANDOUT = 0x10000, A_TILE = 0x20000, MAPW = 64;
-	/* map tiles: Kinder's sheet (web/tiles.js), square cells of row height,
+	/* map tiles: Kinder's sheet; C picks the tile (port/tiles.c, bits 18+), square cells of row height,
 	 * scrolled sideways to keep the player (cursor) in view, like WinOmega */
 	var tilesOn = true, sheet = new Image(), tox = 0;
 	try { tilesOn = localStorage.getItem('omega-tiles') !== '0'; } catch (e) { }
@@ -78,8 +78,8 @@
 		for (var y = 0; y < rows; y++) {
 			if (!(scr[y * cols] & A_TILE)) continue;
 			for (var i = 0; i < nx; i++) {
-				var v = scr[y * cols + tox + i], t = OMEGA_TILES[v & 0x7fff], c = v & 0xff;
-				if (t && sheet.complete && sheet.naturalWidth) ctx.drawImage(sheet, t[0] * 32, t[1] * 32, 32, 32, i * T, y * ch, T, T);
+				var v = scr[y * cols + tox + i], t = v >>> 18, c = v & 0xff;
+				if (t-- && sheet.complete && sheet.naturalWidth) ctx.drawImage(sheet, t % 128 * 32, (t >> 7) * 32, 32, 32, i * T, y * ch, T, T);
 				else if (c > 32) { ctx.fillStyle = PAL[(v & A_COLOR) ? v >> 8 & 15 : 7]; ctx.fillText(String.fromCharCode(c), i * T + T / 2, y * ch + (ch - px) / 2); }
 			}
 		}
