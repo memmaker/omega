@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 OUT=web/dist
 rm -rf "$OUT" && mkdir -p "$OUT"
 SRCS=$(ls *.c | grep -v -e '^compress.c$' -e '^fixstr.c$')
-emcc -O2 -std=gnu89 -w -fcommon -DUNIX -DSYSV -DOMEGA_SHIM -Dusleep=wc_usleep -Iport \
+emcc -O2 -std=gnu89 -w -fcommon -DUNIX -DSYSV -DOMEGA_SHIM -Dusleep=wc_usleep -Dexit=wc_exit -Iport \
 	-Wno-error=implicit-function-declaration -Wno-error=implicit-int -Wno-error=int-conversion \
 	-Wno-error=incompatible-pointer-types -Wno-error=return-mismatch \
 	$SRCS port/wcurses.c port/tiles.c port/be_web.c \

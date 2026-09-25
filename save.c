@@ -569,6 +569,7 @@ FILE *fd;
   filescanstring(fd,Player.name);
   fread((char *)CitySiteList,sizeof(CitySiteList),1,fd);
   fread((char *)&GameStatus,sizeof(long),1,fd);
+  resetgamestatus(SUPPRESS_PRINTING); /* port: the web autosave runs with it set */
   fread((char *)&Current_Environment,sizeof(int),1,fd);
   fread((char *)&Last_Environment,sizeof(int),1,fd);
   fread((char *)&Current_Dungeon,sizeof(int),1,fd);

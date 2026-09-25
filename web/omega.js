@@ -43,7 +43,7 @@
 	}
 
 	/* ---------- drawing: the whole screen (cv) and one canvas per pane, all from the game's cells ---------- */
-	var MAP = 1, SIDE = 2, STAT = 3, MSG = 4, PANE_BOX = { 1: 'map', 2: 'side', 3: 'stat', 4: 'msgcv' }, P = {}, popup = true, msgT = '';
+	var MAP = 1, SIDE = 2, STAT = 3, MSG = 4, PANE_BOX = { 1: 'map', 2: 'side', 3: 'stat' }, P = {}, popup = true;
 	function measure() {
 		ctx.font = px + 'px ' + FONT;
 		cw = Math.ceil(ctx.measureText('M').width); ch = Math.ceil(px * 1.2);
@@ -75,6 +75,12 @@
 		if (bg) { g.fillStyle = PAL[bg]; g.fillRect(x, y, w, ch); }
 		if (c > 32) { g.fillStyle = PAL[fg]; g.fillText(String.fromCharCode(c), x + (w - cw) / 2, y + (ch - px) / 2); }
 	}
+	function paneText(p) {
+		var q = P[p];
+		if (!q) return '';
+		var t = String.fromCharCode.apply(null, q.buf.map(function (v) { return v & 0xff || 32; }));
+		return t.replace(new RegExp('.{' + q.c + '}', 'g'), '$&\n').replace(/ +$/gm, '').trim();
+	}
 	function drawPane(p) {
 		var q = P[p], c = $(PANE_BOX[p]).firstChild, w = p === MAP && tilesOn ? ch : cw;
 		if (!q || !c) return;
@@ -87,10 +93,6 @@
 				if (p === MAP && tilesOn && t-- && sheet.complete && sheet.naturalWidth) g.drawImage(sheet, t % 128 * 32, (t >> 7) * 32, 32, 32, x * w, y * ch, w, ch);
 				else cell(g, v, x * w, y * ch, w);
 			}
-		if (p === MSG) {   /* shown while the game writes to it; a keypress hides it until the line changes */
-			var t = String.fromCharCode.apply(null, q.buf.map(function (v) { return v & 0xff || 32; })).trim();
-			if (t !== msgT) { msgT = t; c.parentNode.hidden = !t; }
-		}
 		if (p !== MAP) return;
 		var cy = cur.y - q.y, cx = cur.x - q.x;
 		if (cy >= 0 && cy < q.r && cx >= 0 && cx < q.c) {
@@ -129,7 +131,7 @@
 		$('map').firstChild.style.display = one ? 'none' : '';
 		$('full').hidden = one || !popup;
 		if (one || popup) drawFull(one);
-		if (!one) [MAP, SIDE, STAT, MSG].forEach(drawPane);
+		if (!one) { [MAP, SIDE, STAT].forEach(drawPane); RvipWM.prompt.text(paneText(MSG)); }
 	}
 	function drawFull(one) {
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -198,7 +200,8 @@
 			});
 			RvipWM.visible($('vis'), vis.replace(/\t(\d+)$/gm, function (m, c) { return '\t' + PAL[+c || 7]; }));
 		},
-		key: function () { return events.length ? events.shift() : -1; },
+		/* atCmd: the game waits for a command, not a y/n or item prompt */
+		key: function (atCmd) { RvipWM.prompt.wait(atCmd); return events.length ? events.shift() : -1; },
 		/* autosave at most every 2 s, and when the page is hidden */
 		wantSave: function () {
 			var now = performance.now();
@@ -343,7 +346,6 @@
 
 	window.addEventListener('resize', function () { if (wm) wm.apply(); });
 	document.addEventListener('keydown', onKey);
-	document.addEventListener('keydown', function () { $('msgcv').hidden = true; });
 	document.addEventListener('DOMContentLoaded', function () {
 		cv = document.createElement('canvas');
 		ctx = cv.getContext('2d');

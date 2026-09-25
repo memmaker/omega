@@ -832,7 +832,7 @@ void morewait()
 {
   int display=TRUE;
   char c;
-  if (gamestatusp(SUPPRESS_PRINTING))
+  if (gamestatusp(SUPPRESS_PRINTING) || auto_more)  /* RVIP 3d: messages are in the log */
     return;
   do {
     wclear(Morew);

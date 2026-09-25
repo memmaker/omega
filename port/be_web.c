@@ -15,17 +15,20 @@ EM_JS(void, js_init, (int c, int r), { Module.om.init(c, r); });
 EM_JS(void, js_put, (int y, int x, int ch), { Module.om.put(y, x, ch); });
 EM_JS(void, js_cursor, (int y, int x), { Module.om.cursor(y, x); });
 EM_JS(void, js_flush, (void), { Module.om.flush(); });
-EM_JS(int, js_key, (void), { return Module.om.key(); });
+EM_JS(int, js_key, (int at_cmd), { return Module.om.key(at_cmd); });
 EM_JS(int, js_want_save, (void), { return Module.om.wantSave(); });
 EM_JS(void, js_end, (int saved), { Module.om.end(saved); });
 
-static void at_exit(void)
+/* exit() (build.sh: -Dexit=wc_exit): Emscripten runs no atexit handlers, so
+ * end the page here and idle; the player reloads (ponytail: the wasm stays up) */
+void wc_exit(int code)
 {
     if (!Rl_saved) unlink("omega.sav");     /* died or quit: the game is over */
     js_end(Rl_saved);
+    for (;;) emscripten_sleep(1000);
 }
 
-void be_init(int c, int r) { atexit(at_exit); js_init(c, r); }
+void be_init(int c, int r) { js_init(c, r); }
 void be_put(int y, int x, chtype ch) { js_put(y, x, ch); }
 void be_cursor(int y, int x) { js_cursor(y, x); }
 EM_JS(void, be_pane, (int p, int y, int x, int r, int c), { Module.om.pane(p, y, x, r, c); });
@@ -80,7 +83,7 @@ int be_getkey(int wait)
             rl_autosave();
             Rl_at_prompt = 1;
         }
-        if ((k = js_key()) >= 0) return k;
+        if ((k = js_key(Rl_at_prompt)) >= 0) return k;
         if (!wait) {                /* polling (explore): let the page paint */
             if (emscripten_get_now() - last > 50) {
                 last = emscripten_get_now();
