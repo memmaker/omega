@@ -3,3 +3,4 @@ test/
 save/
 *.o
 *.dSYM
+web/dist/

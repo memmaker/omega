@@ -60,6 +60,10 @@ int wstandout(WINDOW *);
 int wstandend(WINDOW *);
 int wattrset(WINDOW *, int);
 int wc_kbhit(void);
+void wc_push(int key);         /* queue a key for wgetch */
+WINDOW *dupwin(WINDOW *);
+int delwin(WINDOW *);
+int mvwprintw(WINDOW *, int, int, const char *, ...);
 int wc_usleep(unsigned int us);   /* -Dusleep=wc_usleep */
 
 #define getyx(w, y, x) ((y) = (w)->cury, (x) = (w)->curx)

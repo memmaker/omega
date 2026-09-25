@@ -977,12 +977,10 @@ int compress, force;
     ok = (ynq1() == 'y');
   }
   if (force || ok) {
-    print1("Enter savefile name: ");
+    print1("Enter savefile name [omega.sav]: ");
     strcpy(fname,msgscanstring());
-    if (fname[0] == '\0') {
-      print1("No save file entered - save aborted.");
-      ok = FALSE;
-    }
+    if (fname[0] == '\0')	/* port: play.sh and the web page restore omega.sav */
+      strcpy(fname,"omega.sav");
 #ifdef MSDOS
     for (pos = 0; fname[pos] && isalnum(fname[pos]); pos++)
       ;
@@ -1015,6 +1013,8 @@ int compress, force;
 #endif
     if (ok)
       if (save_game(compress,fname)) {
+	extern int Rl_saved;
+	Rl_saved = TRUE;
 	print3("Bye!");
 	sleep(2);
 	endgraf();

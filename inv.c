@@ -481,7 +481,7 @@ short itype;
 {
   char invstr[64];
   char index;
-  int i,k=0,ok=FALSE,drewmenu=FALSE,found=FALSE;
+  int i,k=0,ok=FALSE,drewmenu=FALSE,found=FALSE,cur=0,nk;
 
   found = ((itype == NULL_ITEM) || ((itype == CASH) && (Player.cash > 0)));
   invstr[0]=0;
@@ -495,6 +495,7 @@ short itype;
 	   invstr[k++] = 'a'+i-1;
 	   invstr[k] = 0;
 	 }
+  nk = k;	/* port: items with a slot letter, for the cursor list */
   if ((itype == CASH) && found) {
     invstr[k++] = '$';
     invstr[k] = 0;
@@ -507,8 +508,22 @@ short itype;
     print2("Select an item [");
     nprint2(invstr);
     nprint2(",?] ");
+    /* port: the list is shown with a cursor: 8/2 move, 5 or Enter picks */
+    if (nk > 0) {
+      drewmenu = TRUE;
+      for (i = 0; i < nk; i++) display_inventory_slot(invstr[i]-'a'+1,FALSE);
+      move_slot(invstr[0]-'a'+1,invstr[0]-'a'+1,MAXITEMS);
+    }
     while (! ok) {
       index = (char) mcigetc();
+      if (nk > 0 && (index == '2' || index == '8')) {
+	int nxt = (cur + (index == '2' ? 1 : nk - 1)) % nk;
+	move_slot(invstr[cur]-'a'+1,invstr[nxt]-'a'+1,MAXITEMS);
+	cur = nxt;
+	continue;
+      }
+      if (nk > 0 && (index == '\n' || index == '\r' || index == '5'))
+	index = invstr[cur];
       if (index == '?') {
 	drewmenu = TRUE;
 	for (i=1;i<MAXITEMS;i++)
@@ -738,6 +753,17 @@ void inventory_control()
   do {
     move_slot(slot,slot,MAXITEMS);
     response = mcigetc();
+    /* port: numpad and the item menu (Enter / 5 / space) */
+    if (response == '2') response = 'j';
+    else if (response == '8') response = 'k';
+    else if (response == '-') response = 'd';
+    else if (response == '*') response = 'l';
+    else if (response == '0' || response == '.') response = ESCAPE;
+    else if (response == '\n' || response == '\r' || response == ' ' ||
+	     response == '5' || response == '+') {
+      response = rl_item_menu(slot);
+      if (response == 0) break;		/* a game command was queued */
+    }
 
     switch(response) {
     case 12:

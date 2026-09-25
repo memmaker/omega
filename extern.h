@@ -7,6 +7,13 @@
 #define ARGS(x) ()
 #endif
 
+/* rl.c functions (port) */
+int rl_auto ARGS((void));
+int rl_command ARGS((int));
+int rl_item_menu ARGS((int));
+void rl_autosave ARGS((void));
+extern int Rl_at_prompt, Rl_saved;
+
 /* omega.c functions */
 
 int main ARGS((int,char *[]));

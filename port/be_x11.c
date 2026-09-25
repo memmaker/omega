@@ -87,15 +87,16 @@ static int keycode(XKeyEvent *ev)
     char buf[8];
     KeySym ks;
     int n = XLookupString(ev, buf, sizeof buf, &ks, NULL);
-    switch (ks) {       /* keypad: Omega's own vi keys / numbers */
-    case XK_Left: case XK_KP_Left: return 'h';
-    case XK_Right: case XK_KP_Right: return 'l';
-    case XK_Up: case XK_KP_Up: return 'k';
-    case XK_Down: case XK_KP_Down: return 'j';
-    case XK_Home: case XK_KP_Home: return 'y';
-    case XK_Prior: case XK_KP_Prior: return 'u';
-    case XK_End: case XK_KP_End: return 'b';
-    case XK_Next: case XK_KP_Next: return 'n';
+    switch (ks) {       
+    /* arrows = keypad digits: Omega moves with them, and lists use 8/2 */
+    case XK_Left: case XK_KP_Left: return '4';
+    case XK_Right: case XK_KP_Right: return '6';
+    case XK_Up: case XK_KP_Up: return '8';
+    case XK_Down: case XK_KP_Down: return '2';
+    case XK_Home: case XK_KP_Home: return '7';
+    case XK_Prior: case XK_KP_Prior: return '9';
+    case XK_End: case XK_KP_End: return '1';
+    case XK_Next: case XK_KP_Next: return '3';
     case XK_KP_Begin: return '5';
     case XK_KP_Enter: case XK_Return: return '\n';   /* curses nl() mode */
     case XK_BackSpace: case XK_Delete: return '\b';

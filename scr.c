@@ -1659,6 +1659,8 @@ int bufferpos = 0;
 void buffercycle(s)
 char *s;
 {
+  extern int Msg_count;
+  Msg_count++;
   strcpy(Stringbuffer[bufferpos++],s);
   if (bufferpos >= STRING_BUFFER_SIZE)
     bufferpos = 0;

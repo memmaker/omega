@@ -75,7 +75,7 @@ char *savestr;
   }
   if (! writeok)
   {
-    morewait();
+    if (! gamestatusp(SUPPRESS_PRINTING)) morewait();
     print2("Save aborted.");
   }
   else {
@@ -138,8 +138,10 @@ char *savestr;
 # endif
     }
 #endif
-    morewait();
-    clearmsg();
+    if (! gamestatusp(SUPPRESS_PRINTING)) {	/* port: quiet autosave */
+      morewait();
+      clearmsg();
+    }
   }
   change_to_game_perms();
   return(writeok);

@@ -47,8 +47,9 @@ Z    : bash something (item carried)                              :     10*
 .    : rest a turn                                                :     10
 ,    : sleep some number of minutes                               :  60..6000
 @    : stay in current location, activating any local effect here :     5
->    : go down a level                                            :     0~
-<    : go up a level                                              :     0~
+>    : go down a level (walks to known stairs first)              :    0~
+<    : go up a level (walks to known stairs first)                :    0~
+X    : explore automatically (stops for monsters, messages)       :   5*+
 /    : identify the onscreen usage of some character              :     0
 
 vi keys (hjklbnyu) & keypad number: 
@@ -61,6 +62,7 @@ capitalized vi keys (HJKLBNYU) or 5 followed by keypad number:
        option set, stop for doorways, etc. if RUNSTOP option 
        set.                                                       :     4*+
 
+Enter: this command menu (arrows/8/2 move, Enter/5 choose)       :     0
 ?    : display or copy help files                                 :     0
 
 * Actual time taken varies according to SPEED factor.

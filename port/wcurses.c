@@ -91,6 +91,28 @@ int printw(const char *f, ...)
     return r;
 }
 
+int mvwprintw(WINDOW *w, int y, int x, const char *f, ...)
+{
+    va_list ap; int r;
+    if (wmove(w, y, x) == ERR) return ERR;
+    va_start(ap, f); r = vw(w, f, ap); va_end(ap);
+    return r;
+}
+
+WINDOW *dupwin(WINDOW *s)
+{
+    WINDOW *w = newwin(s->maxy, s->maxx, s->begy, s->begx);
+    memcpy(w->c, s->c, sizeof(chtype) * s->maxy * s->maxx);
+    return w;
+}
+
+int delwin(WINDOW *w)
+{
+    if (!w) return ERR;
+    free(w->c); free(w);
+    return OK;
+}
+
 chtype winch(WINDOW *w) { return w->c[w->cury * w->maxx + w->curx]; }
 
 int wclrtoeol(WINDOW *w)
@@ -149,12 +171,20 @@ int wrefresh(WINDOW *w)
     return OK;
 }
 
-static int pushback = -1;
+static int queue[64], qn, pushback = -1;
+
+/* keys the game queues (item menus run commands this way) come first */
+void wc_push(int k) { if (qn < 64) queue[qn++] = k; }
 
 int wgetch(WINDOW *w)
 {
     int k = pushback;
     wrefresh(w);
+    if (qn) {
+        k = queue[0];
+        memmove(queue, queue + 1, --qn * sizeof *queue);
+        return k;
+    }
     pushback = -1;
     return k >= 0 ? k : be_getkey(1);
 }

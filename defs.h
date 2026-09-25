@@ -59,7 +59,9 @@ on save and restore. */
 
 /* set WIZARD to maintainers's username */
 
+#ifndef WIZARD
 #define WIZARD "max"
+#endif
 
 /* If CATCH_SIGNALS is set to 1, will not dump core, nicer for players. */
 /* dbx still intercepts the signals first, so it's ok for debugging */

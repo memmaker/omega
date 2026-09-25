@@ -26,8 +26,13 @@ void p_process()
     drawvision(Player.x,Player.y);
     if (! gamestatusp(FAST_MOVE)) {
       searchval = 0;
-      Cmd = mgetc();
+      if (! (Cmd = rl_auto())) {
+	Rl_at_prompt = TRUE;
+	Cmd = mgetc();
+	Rl_at_prompt = FALSE;
+      }
       clear_if_necessary();
+      Cmd = rl_command(Cmd);
     }
     Command_Duration = 0;
     switch (Cmd) {
@@ -263,8 +268,11 @@ void p_country_process()
   drawvision(Player.x,Player.y);
   do {
     no_op = FALSE;
+    Rl_at_prompt = TRUE;
     Cmd = mgetc();
+    Rl_at_prompt = FALSE;
     clear_if_necessary();
+    Cmd = rl_command(Cmd);
     switch (Cmd) {
     case ' ': 
     case 13: no_op = TRUE; break;
