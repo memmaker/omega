@@ -150,7 +150,7 @@ int wrefresh(WINDOW *w)
     for (y = 0; y < w->maxy; y++)
         for (x = 0; x < w->maxx; x++) {
             int sy = y + w->begy, sx = x + w->begx;
-            if (sy < LINES && sx < COLS) curscr->c[sy * COLS + sx] = w->c[y * w->maxx + x];
+            if (sy < LINES && sx < COLS) curscr->c[sy * COLS + sx] = w->c[y * w->maxx + x] | (w->tiles ? A_TILE : 0);
         }
     w->dirty = 0;
     for (y = 0; y < LINES * COLS; y++)

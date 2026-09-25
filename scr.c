@@ -389,6 +389,9 @@ void initgraf()
   Locw = newwin(1,80,ScreenLength+3,0);
   scrollok(Locw, 0);
   Levelw = newwin(ScreenLength,64,3,0);
+#ifdef OMEGA_SHIM
+  Levelw->tiles = 1;
+#endif
   scrollok(Levelw, 0);
   for(i=0;i<MAXITEMS;i++) {
     Showline[i] = newwin(1,64,i+3,0);

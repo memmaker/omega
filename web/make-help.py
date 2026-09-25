@@ -32,7 +32,7 @@ SAVING = '''<ul>
 </ul>'''
 
 WEB = '''<ul>
-<li>One text screen in Omega's 16 colours, as in its PC version; Omega never had tiles. <em>Zoom −</em> / <em>Zoom +</em> change the text size.</li>
+<li>The map uses the 32×32 tiles of David Kinder's Windows Omega (github.com/DavidKinder/Omega); <em>Tiles</em> switches to the original 16-colour text. <em>Zoom −</em> / <em>Zoom +</em> change the size.</li>
 <li><strong>Keys:</strong> <kbd>h</kbd><kbd>j</kbd><kbd>k</kbd><kbd>l</kbd><kbd>y</kbd><kbd>u</kbd><kbd>b</kbd><kbd>n</kbd>, the arrow keys or the numeric keypad move you; capital letters run.</li>
 <li>Browsers keep a few shortcuts for themselves (<kbd>Ctrl+W</kbd>, <kbd>Ctrl+T</kbd>, <kbd>Ctrl+N</kbd>, and <kbd>Cmd</kbd> shortcuts on a Mac), so those never reach the game. <kbd>Ctrl+P</kbd> (previous message) works.</li>
 <li>If the game ever crashes, a message appears at the top; reload the page to continue from the last autosave.</li>

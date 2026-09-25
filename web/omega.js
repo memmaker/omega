@@ -11,7 +11,13 @@
 	var FONT = '"DejaVu Sans Mono", Menlo, Consolas, "Liberation Mono", monospace';
 	var PAL = ['#000000', '#0000aa', '#00aa00', '#00aaaa', '#aa0000', '#aa00aa', '#aa5500', '#aaaaaa',
 		'#555555', '#5555ff', '#55ff55', '#55ffff', '#ff5555', '#ff55ff', '#ffff55', '#ffffff'];
-	var A_COLOR = 0x7f00, A_STANDOUT = 0x10000;
+	var A_COLOR = 0x7f00, A_STANDOUT = 0x10000, A_TILE = 0x20000, MAPW = 64;
+	/* map tiles: Kinder's sheet (web/tiles.js), square cells of row height,
+	 * scrolled sideways to keep the player (cursor) in view, like WinOmega */
+	var tilesOn = true, sheet = new Image(), tox = 0;
+	try { tilesOn = localStorage.getItem('omega-tiles') !== '0'; } catch (e) { }
+	sheet.onload = function () { dirty = true; draw(); };
+	sheet.src = 'tiles.png';
 	/* arrows and keypad = Omega's number keys (moving, and 8/2 in lists) */
 	var KEYS = { ArrowUp: 56, ArrowDown: 50, ArrowLeft: 52, ArrowRight: 54, Home: 55, PageUp: 57,
 		End: 49, PageDown: 51, Clear: 53, Enter: 10, Escape: 27, Backspace: 8, Delete: 8, Tab: 9 };
@@ -52,14 +58,42 @@
 		ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cols * cw, rows * ch);
 		for (var y = 0; y < rows; y++)
 			for (var x = 0; x < cols; x++) {
+				if (tilesOn && x < MAPW && scr[y * cols + x] & A_TILE) continue;
 				var v = scr[y * cols + x], c = v & 0xff, fg = v >> 8 & 15, bg = v >> 12 & 7, t;
 				if (!(v & A_COLOR)) fg = 7;
 				if (v & A_STANDOUT) { t = fg; fg = bg; bg = t; }
 				if (bg) { ctx.fillStyle = PAL[bg]; ctx.fillRect(x * cw, y * ch, cw, ch); }
 				if (c > 32) { ctx.fillStyle = PAL[fg]; ctx.fillText(String.fromCharCode(c), x * cw, y * ch + (ch - px) / 2); }
 			}
+		if (tilesOn && drawTiles()) return;
 		ctx.fillStyle = PAL[7];
 		ctx.fillRect(cur.x * cw, cur.y * ch + ch - 2, cw, 2);
+	}
+	/* true when the cursor is on the map (drawn here as a box) */
+	function drawTiles() {
+		var T = ch, nx = Math.min(MAPW, Math.floor(MAPW * cw / T)), onMap = cur.x < MAPW && scr[cur.y * cols] & A_TILE;
+		if (onMap) tox = Math.max(0, Math.min(MAPW - nx, cur.x - (nx >> 1)));
+		ctx.imageSmoothingEnabled = false;
+		ctx.textAlign = 'center';
+		for (var y = 0; y < rows; y++) {
+			if (!(scr[y * cols] & A_TILE)) continue;
+			for (var i = 0; i < nx; i++) {
+				var v = scr[y * cols + tox + i], t = OMEGA_TILES[v & 0x7fff], c = v & 0xff;
+				if (t && sheet.complete && sheet.naturalWidth) ctx.drawImage(sheet, t[0] * 32, t[1] * 32, 32, 32, i * T, y * ch, T, T);
+				else if (c > 32) { ctx.fillStyle = PAL[(v & A_COLOR) ? v >> 8 & 15 : 7]; ctx.fillText(String.fromCharCode(c), i * T + T / 2, y * ch + (ch - px) / 2); }
+			}
+		}
+		ctx.textAlign = 'left';
+		if (!onMap) return false;
+		ctx.strokeStyle = PAL[14]; ctx.lineWidth = 1;
+		ctx.strokeRect((cur.x - tox) * T + 0.5, cur.y * ch + 0.5, T - 1, T - 1);
+		return true;
+	}
+	function toggleTiles() {
+		tilesOn = !tilesOn;
+		try { localStorage.setItem('omega-tiles', tilesOn ? '1' : '0'); } catch (e) { }
+		$('btn-tiles').classList.toggle('on', tilesOn);
+		dirty = true; draw();
 	}
 	function zoom(d) {
 		auto = false;
@@ -235,6 +269,8 @@
 		$('import-file').onchange = function () { if (this.files[0]) importSave(this.files[0]); this.value = ''; };
 		$('btn-new').onclick = newGame;
 		$('btn-help').onclick = toggleHelp;
+		$('btn-tiles').onclick = toggleTiles;
+		$('btn-tiles').classList.toggle('on', tilesOn);
 		$('help-close').onclick = toggleHelp;
 		$('btn-zoom-in').onclick = function () { zoom(1); };
 		$('btn-zoom-out').onclick = function () { zoom(-1); };
