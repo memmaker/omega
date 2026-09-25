@@ -1,6 +1,7 @@
 /* In-memory curses: windows are drawn onto curscr in wrefresh() order (like
  * real curses), and changed curscr cells go to the frontend. */
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include "curses.h"
 
@@ -158,7 +159,23 @@ void wc_pane(WINDOW *w, int p)
     be_pane(p, y, x, P[p].r, P[p].c);
 }
 
-void wc_msg(const char *s, int append) { be_msg(s, append); }
+/* append: 1 = run-on text for the last line. A repeat of the last message
+   becomes "message (xN)", replacing the page's last line (append = 2). */
+void wc_msg(const char *s, int append)
+{
+    static char prev[512];
+    static int reps;
+    char fold[560];
+    if (append) { prev[0] = 0; be_msg(s, 1); return; }
+    if (*prev && !strcmp(s, prev)) {
+        snprintf(fold, sizeof fold, "%s (x%d)", s, ++reps);
+        be_msg(fold, 2);
+        return;
+    }
+    snprintf(prev, sizeof prev, "%s", s);
+    reps = 1;
+    be_msg(s, 0);
+}
 
 int wrefresh(WINDOW *w)
 {

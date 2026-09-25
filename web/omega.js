@@ -27,12 +27,13 @@
 	var auto = true, cv, ctx, wm = null, rects = {}, LAYOUT = '/save/web-layout.json', L = { px: 0, font: 13, wm: null }, px = 18, cw = 11, ch = 22, dirty = true;
 	var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
 
-	/* message history: lines the game sends (be_msg), append = run-on text */
+	/* message history: lines the game sends (be_msg), append 1 = run-on text,
+	 * 2 = the game folded a repeat: replace the last line */
 	function msg(s, append) {
-		var l = $('log'), end = l.scrollTop + l.clientHeight >= l.scrollHeight - 4;
-		if (append && l.lastChild) l.lastChild.textContent += s;
-		else { var d = document.createElement('div'); d.textContent = s; l.appendChild(d); }
-		if (l.childNodes.length > 500) l.removeChild(l.firstChild);
+		var l = $('log'), d = l.lastChild;
+		if (append !== 1 || !d) return RvipWM.log(l, s, append === 2);
+		var end = l.scrollTop + l.clientHeight >= l.scrollHeight - 4;
+		d.dataset.s += s; d.textContent += s;
 		if (end) l.scrollTop = l.scrollHeight;
 	}
 	function $(id) { return document.getElementById(id); }
@@ -78,6 +79,7 @@
 		if (bg) { g.fillStyle = PAL[bg]; g.fillRect(x, y, w, ch); }
 		if (c > 32) { g.fillStyle = PAL[fg]; g.fillText(String.fromCharCode(c), x + (w - cw) / 2, y + (ch - px) / 2); }
 	}
+	var mapFx = 0, mapFy = 0;
 	function drawPane(p) {
 		var q = P[p], c = $(PANE_BOX[p]).firstChild, w = p === MAP && tilesOn ? ch : cw;
 		if (!q || !c) return;
@@ -95,8 +97,8 @@
 		var cy = cur.y - q.y, cx = cur.x - q.x;
 		if (cy >= 0 && cy < q.r && cx >= 0 && cx < q.c) {
 			g.strokeStyle = PAL[14]; g.lineWidth = 1; g.strokeRect(cx * w + 0.5, cy * ch + 0.5, w - 1, ch - 1);
-			scroll(c, (cx + 0.5) * w, (cy + 0.5) * ch);
-		} else scroll(c, 0, 0);
+			scroll(c, mapFx = (cx + 0.5) * w, mapFy = (cy + 0.5) * ch);
+		} else scroll(c, mapFx, mapFy);	/* cursor off the map (message line): keep the last view */
 	}
 	function saveLayout() { try { Module.FS.writeFile(LAYOUT, JSON.stringify(L)); syncFiles(); } catch (e) { } }
 	function fonts() { ['log', 'inv', 'vis'].forEach(function (id) { $(id).style.fontSize = L.font + 'px'; }); }

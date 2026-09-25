@@ -16,6 +16,6 @@ emcc -O2 -std=gnu89 -w -fcommon -DUNIX -DSYSV -DOMEGA_SHIM -Dusleep=wc_usleep -I
 	-sEXPORTED_FUNCTIONS=_main \
 	-sEXPORTED_RUNTIME_METHODS=FS,IDBFS,ENV,addRunDependency,removeRunDependency \
 	-sFORCE_FILESYSTEM -lidbfs.js -sENVIRONMENT=web
-cp web/index.html web/omega.js web/tiles.png web/rvip-wm.js "$OUT/"
+cp web/index.html web/omega.js web/tiles.png "$HOME/Games/rvip-tools/web/rvip-wm.js" "$OUT/"
 python3 web/make-help.py > "$OUT/help.html"
 ls -la "$OUT"
