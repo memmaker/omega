@@ -7,6 +7,8 @@
 WINDOW *stdscr, *curscr;
 int LINES = 24, COLS = 80;
 static chtype *shown;
+static unsigned char *owner;       /* pane of the window that drew each curscr cell */
+static struct { int y, x, r, c; chtype *shown; } P[WC_PANES];
 
 WINDOW *newwin(int rows, int cols, int by, int bx)
 {
@@ -27,6 +29,7 @@ WINDOW *initscr(void)
     curscr = newwin(LINES, COLS, 0, 0);
     stdscr = newwin(LINES, COLS, 0, 0);
     shown = malloc(sizeof(chtype) * LINES * COLS);
+    owner = calloc(LINES * COLS, 1);
     memset(shown, 0xff, sizeof(chtype) * LINES * COLS);
     be_init(COLS, LINES);
     return stdscr;
@@ -139,9 +142,27 @@ int wstandend(WINDOW *w) { w->attr &= ~A_STANDOUT; return OK; }
 /* Omega passes COL_x >> 8 */
 int wattrset(WINDOW *w, int a) { w->attr = (w->attr & A_STANDOUT) | (a << 8 & A_COLOR); return OK; }
 
+void wc_pane(WINDOW *w, int p)
+{
+    int y = P[p].r ? P[p].y : w->begy, x = P[p].r ? P[p].x : w->begx;
+    int y1 = P[p].r ? P[p].y + P[p].r : 0, x1 = P[p].r ? P[p].x + P[p].c : 0;
+    w->pane = p;
+    if (w->begy < y) y = w->begy;
+    if (w->begx < x) x = w->begx;
+    if (w->begy + w->maxy > y1) y1 = w->begy + w->maxy;
+    if (w->begx + w->maxx > x1) x1 = w->begx + w->maxx;
+    P[p].y = y; P[p].x = x; P[p].r = y1 - y; P[p].c = x1 - x;
+    free(P[p].shown);
+    P[p].shown = malloc(sizeof(chtype) * P[p].r * P[p].c);
+    memset(P[p].shown, 0xff, sizeof(chtype) * P[p].r * P[p].c);
+    be_pane(p, y, x, P[p].r, P[p].c);
+}
+
+void wc_msg(const char *s, int append) { be_msg(s, append); }
+
 int wrefresh(WINDOW *w)
 {
-    int y, x;
+    int y, x, pop = 0;
     if (!curscr) return ERR;
     if (w->clear) memset(shown, 0xff, sizeof(chtype) * LINES * COLS);
     w->clear = 0;
@@ -150,9 +171,19 @@ int wrefresh(WINDOW *w)
     for (y = 0; y < w->maxy; y++)
         for (x = 0; x < w->maxx; x++) {
             int sy = y + w->begy, sx = x + w->begx;
-            if (sy < LINES && sx < COLS) curscr->c[sy * COLS + sx] = w->c[y * w->maxx + x] | (w->tiles ? A_TILE | (chtype)wc_tile(w->c[y * w->maxx + x]) << 18 : 0);
+            chtype v = w->c[y * w->maxx + x] | (w->tiles ? A_TILE | (chtype)wc_tile(w->c[y * w->maxx + x]) << 18 : 0);
+            if (sy < LINES && sx < COLS) { curscr->c[sy * COLS + sx] = v; owner[sy * COLS + sx] = w->pane; }
+            if (w->pane) {
+                int py = sy - P[w->pane].y, px = sx - P[w->pane].x, i = py * P[w->pane].c + px;
+                if (P[w->pane].shown[i] != v) { P[w->pane].shown[i] = v; be_pput(w->pane, py, px, v); }
+            }
         }
     w->dirty = 0;
+    /* a window that isn't a pane covers the map: show the whole screen */
+    for (y = P[WC_MAP].y; y < P[WC_MAP].y + P[WC_MAP].r; y++)
+        for (x = P[WC_MAP].x; x < P[WC_MAP].x + P[WC_MAP].c; x++)
+            if (owner[y * COLS + x] == WC_FULL) pop = 1;
+    be_popup(pop || !P[WC_MAP].r);
     for (y = 0; y < LINES * COLS; y++)
         if (shown[y] != curscr->c[y]) {
             shown[y] = curscr->c[y];

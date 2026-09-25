@@ -28,6 +28,10 @@ static void at_exit(void)
 void be_init(int c, int r) { atexit(at_exit); js_init(c, r); }
 void be_put(int y, int x, chtype ch) { js_put(y, x, ch); }
 void be_cursor(int y, int x) { js_cursor(y, x); }
+EM_JS(void, be_pane, (int p, int y, int x, int r, int c), { Module.om.pane(p, y, x, r, c); });
+EM_JS(void, be_pput, (int p, int y, int x, chtype ch), { Module.om.pput(p, y, x, ch); });
+EM_JS(void, be_popup, (int on), { Module.om.popup(on); });
+EM_JS(void, be_msg, (const char *s, int append), { Module.om.msg(UTF8ToString(s), append); });
 /* Inventory and Visible windows (rvip-wm.js): lines "<colour>\t<text>" for
  * the inventory; "M<glyph><name>\t<colour>" / "I<glyph><name>\t<colour>"
  * for what the player sees (colours: PC palette indexes, omega.js maps them) */

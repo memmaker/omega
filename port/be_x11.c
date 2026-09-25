@@ -134,6 +134,12 @@ void be_put(int y, int x, chtype ch)
     if (c != ' ') XftDrawString8(xd, &col[fg], fnt, x * tw, y * th + fnt->ascent, &c, 1);
 }
 
+/* one text window: panes, pop-ups and the message history are the screen itself */
+void be_pane(int p, int y, int x, int r, int c) { }
+void be_pput(int p, int y, int x, chtype ch) { }
+void be_popup(int on) { }
+void be_msg(const char *s, int append) { }
+
 void be_cursor(int y, int x) { if (y != cy || x != cx) mapdirty = 1; cy = y; cx = x; }
 
 void be_flush(void)

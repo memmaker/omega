@@ -396,9 +396,6 @@ void initgraf()
   Locw = newwin(1,80,ScreenLength+3,0);
   scrollok(Locw, 0);
   Levelw = newwin(ScreenLength,64,3,0);
-#ifdef OMEGA_SHIM
-  Levelw->tiles = 1;
-#endif
   scrollok(Levelw, 0);
   for(i=0;i<MAXITEMS;i++) {
     Showline[i] = newwin(1,64,i+3,0);
@@ -417,6 +414,14 @@ void initgraf()
   scrollok(Flagw, 0);
   Comwin = newwin(8,15,14,65);
   scrollok(Comwin, 0);
+#ifdef OMEGA_SHIM
+  Levelw->tiles = 1;
+  wc_pane(Levelw, WC_MAP);
+  wc_pane(Msg1w, WC_MSG); wc_pane(Msg2w, WC_MSG); wc_pane(Msg3w, WC_MSG);
+  wc_pane(Morew, WC_SIDE); wc_pane(Timew, WC_SIDE); wc_pane(Phasew, WC_SIDE);
+  wc_pane(Flagw, WC_SIDE); wc_pane(Comwin, WC_SIDE);
+  wc_pane(Locw, WC_STAT); wc_pane(Dataw, WC_STAT);
+#endif
 
   noecho();
   crmode();
@@ -1671,6 +1676,9 @@ char *s;
 {
   extern int Msg_count;
   Msg_count++;
+#ifdef OMEGA_SHIM
+  wc_msg(s, 0);
+#endif
   strcpy(Stringbuffer[bufferpos++],s);
   if (bufferpos >= STRING_BUFFER_SIZE)
     bufferpos = 0;
@@ -1684,6 +1692,9 @@ char *s;
   if (pos < 0)
     pos = STRING_BUFFER_SIZE - 1;
   if (strlen(Stringbuffer[pos]) + strlen(s) < 80 - 1) {
+#ifdef OMEGA_SHIM
+    wc_msg(s, 1);
+#endif
     strcat(Stringbuffer[pos],s);
     return 1;
   }

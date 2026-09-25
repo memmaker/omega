@@ -24,7 +24,7 @@ int wc_tile(int c);
 
 typedef struct _win {
     int maxy, maxx, begy, begx, cury, curx, attr;
-    int clear, dirty, tiles;
+    int clear, dirty, tiles, pane;
     chtype *c;
 } WINDOW;
 
@@ -97,9 +97,20 @@ int wc_usleep(unsigned int us);   /* -Dusleep=wc_usleep */
 #define flushinp() OK
 #define beep() OK
 
-/* frontend: one text screen */
+/* panes (page windows): the game names its windows with wc_pane(); a pane's
+ * rect is the union of its windows. Other windows only reach the whole
+ * screen (curscr); when one of them covers the map, the screen is a pop-up. */
+enum { WC_FULL, WC_MAP, WC_SIDE, WC_STAT, WC_MSG, WC_PANES };
+void wc_pane(WINDOW *w, int pane);
+void wc_msg(const char *s, int append);   /* message history line */
+
+/* frontend: the whole screen, plus each pane */
 void be_init(int cols, int rows);
 void be_put(int y, int x, chtype ch);
+void be_pane(int pane, int y, int x, int rows, int cols);  /* pane rect on the screen */
+void be_pput(int pane, int y, int x, chtype ch);          /* cell inside the pane */
+void be_popup(int on);
+void be_msg(const char *s, int append);
 void be_cursor(int y, int x);
 void be_flush(void);
 int  be_getkey(int wait);   /* -1 when !wait and nothing queued */
