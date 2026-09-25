@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "curses.h"
+#include "../glob.h"
 
 extern int Rl_at_prompt, Rl_saved;
 void rl_autosave(void);
@@ -27,7 +28,40 @@ static void at_exit(void)
 void be_init(int c, int r) { atexit(at_exit); js_init(c, r); }
 void be_put(int y, int x, chtype ch) { js_put(y, x, ch); }
 void be_cursor(int y, int x) { js_cursor(y, x); }
-void be_flush(void) { js_flush(); }
+/* Inventory and Visible windows (rvip-wm.js): lines "<colour>\t<text>" for
+ * the inventory; "M<glyph><name>\t<colour>" / "I<glyph><name>\t<colour>"
+ * for what the player sees (colours: PC palette indexes, omega.js maps them) */
+EM_JS(void, js_lists, (const char *inv, const char *vis), { Module.om.lists(UTF8ToString(inv), UTF8ToString(vis)); });
+static void send_lists(void)
+{
+    static char inv[8192], vis[8192];
+    char *p = inv, *e;
+    int i, x, y;
+    pml ml;
+    pol ol;
+
+    *p = 0;
+    for (i = 0; i < MAXITEMS; i++)
+        if (Player.possessions[i])
+            p += sprintf(p, "%d\t%-14.14s %.60s\n", Player.possessions[i]->objchar >> 8 & 15, slotstr(i), itemid(Player.possessions[i]));
+    for (i = 0; i < Player.packptr && i < MAXPACK; i++)
+        if (Player.pack[i])
+            p += sprintf(p, "%d\tpack %c)        %.60s\n", Player.pack[i]->objchar >> 8 & 15, 'a' + i, itemid(Player.pack[i]));
+    p = vis; e = vis + sizeof vis - 200; *p = 0;
+    if (Level && Current_Environment != E_COUNTRYSIDE && !Player.status[BLINDED]) {
+        for (ml = Level->mlist; ml && p < e; ml = ml->next)
+            if (ml->m->hp > 0 && view_los_p(Player.x, Player.y, ml->m->x, ml->m->y)
+                && (Player.status[TRUESIGHT] || !m_statusp(ml->m, M_INVISIBLE)))
+                p += sprintf(p, "M%c%.60s\t%d\n", ml->m->monchar & 0xff, ml->m->monstring, ml->m->monchar >> 8 & 15);
+        for (x = 0; x < WIDTH && x < MAXWIDTH; x++)
+            for (y = 0; y < LENGTH && y < MAXLENGTH && p < e; y++)
+                if (Level->site[x][y].things && view_los_p(Player.x, Player.y, x, y))
+                    for (ol = Level->site[x][y].things; ol && p < e; ol = ol->next)
+                        p += sprintf(p, "I%c%.80s\t%d\n", ol->thing->objchar & 0xff, itemid(ol->thing), ol->thing->objchar >> 8 & 15);
+    }
+    js_lists(inv, vis);
+}
+void be_flush(void) { if (Player.maxhp > 0) send_lists(); js_flush(); }
 void be_sleep(int ms) { emscripten_sleep(ms); }
 void be_end(void) { }
 

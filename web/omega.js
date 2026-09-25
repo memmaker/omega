@@ -131,6 +131,7 @@
 		put: function (y, x, v) { scr[y * cols + x] = v; dirty = true; },
 		cursor: function (y, x) { cur.y = y; cur.x = x; dirty = true; },
 		flush: function () { draw(); },
+		lists: function () { },   /* Inventory / Visible windows: WM conversion pending */
 		key: function () { return events.length ? events.shift() : -1; },
 		/* autosave at most every 2 s, and when the page is hidden */
 		wantSave: function () {
