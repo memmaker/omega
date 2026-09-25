@@ -9,7 +9,8 @@ Case O (curses, no Rogue/Moria lineage). `git log`: upstream, then the port.
   command1.c, inv.c (`getitem` cursor, `inventory_control` keys), scr.c,
   save.c, command2.c, char.c, defs.h. Help: `omegalib/help12.txt`.
 - Text only, 16 colours: no tile set exists for Omega.
-- Not done: sound (6b), mouse, deploy to ruzzoli.de (waiting for OK).
+- Live: https://ruzzoli.de/roguelikes/omega/ (deployed 2026-09-25).
+- Not done: sound (6b), mouse.
 - Tested: char creation, city, countryside travel, temple explore + doors,
   menu, item menu quaff + reopen, save/restore, ASan run (clean), web
   menu/autosave/restore in the browser.
