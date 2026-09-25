@@ -297,6 +297,8 @@ char *s;
 
 /* prints wherever cursor is in window, but checks to see if
 it should morewait and clear window */
+int auto_more = 1;	/* RVIP: message --More-- does not wait */
+
 void mprint(s)
 char *s;
 {
@@ -308,6 +310,11 @@ char *s;
       if (Msgw == Msg1w) {
 	wclear(Msg2w);
 	Msgw = Msg2w;
+      }
+      else if (auto_more) {
+	/* ponytail: newest line alternates rows instead of scrolling */
+	wclear(Msg1w);
+	Msgw = Msg1w;
       }
       else {
 	morewait();
