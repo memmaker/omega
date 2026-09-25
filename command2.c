@@ -592,7 +592,7 @@ void setoptions()
       if (to == 8)	/* COMPRESS_OPTION */
 	to = 9;
 #endif
-#if !defined(MSDOS) && !defined(AMIGA)
+#if !defined(MSDOS) && !defined(AMIGA) && !defined(OMEGA_SHIM)
       if (to == 9)	/* SHOW_COLOUR */
 	to = 10;
 #endif
@@ -604,7 +604,7 @@ void setoptions()
     case KEY_UP:
 #endif
       to = slot - 1;
-#if !defined(MSDOS) && !defined(AMIGA)
+#if !defined(MSDOS) && !defined(AMIGA) && !defined(OMEGA_SHIM)
       if (to == 9)	/* SHOW_COLOUR */
 	to = 8;
 #endif
@@ -665,7 +665,7 @@ void setoptions()
     colour_on();
   else
     colour_off();
-#if !defined(MSDOS) && !defined(AMIGA)
+#if !defined(MSDOS) && !defined(AMIGA) && !defined(OMEGA_SHIM)
   xredraw();
 #endif
 }

@@ -1577,7 +1577,7 @@ int slot;
 #endif
     break;
   case 9:
-#if defined(MSDOS) || defined(AMIGA)
+#if defined(MSDOS) || defined(AMIGA) || defined(OMEGA_SHIM)
     wprintw(Showline[slot],"-- Option COLOUR [TF]: ");
     wprintw(Showline[slot], optionp(SHOW_COLOUR) ? "(now T) " : "(now F) ");
 #endif

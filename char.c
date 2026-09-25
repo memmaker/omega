@@ -54,7 +54,7 @@ void initplayer()
   if ((fd=omegarc_check())!=NULL) {
     fread((char *)&i,sizeof(int),1,fd);
     if (i != VERSION) {
-#if defined(MSDOS) || defined(AMIGA)
+#if defined(MSDOS) || defined(AMIGA) || defined(OMEGA_SHIM)
       print1("Out of date omega.rc! Make another!");
 #else
       print1("Out of date .omegarc! Make another!");
@@ -79,7 +79,7 @@ void initplayer()
 #ifdef COMPRESS_SAVE_FILES
     optionset(COMPRESS_OPTION);
 #endif
-#if defined(MSDOS) || defined(AMIGA)
+#if defined(MSDOS) || defined(AMIGA) || defined(OMEGA_SHIM)
     optionset(SHOW_COLOUR);
 #endif
     initstats();
@@ -97,7 +97,7 @@ void initplayer()
 FILE *omegarc_check()
 {
   FILE *fd;
-#if defined(MSDOS) || defined(AMIGA)
+#if defined(MSDOS) || defined(AMIGA) || defined(OMEGA_SHIM)
   if ((fd = fopen("omega.rc","rb")) != NULL) {
     print2("Use omega.rc in current directory? [yn] ");
 #else
@@ -123,7 +123,7 @@ void initstats()
   else {
     user_character_stats();
     user_intro();
-#if defined(MSDOS) || defined(AMIGA)
+#if defined(MSDOS) || defined(AMIGA) || defined(OMEGA_SHIM)
     print1("Do you want to save this set-up to omega.rc in this directory? [yn] ");
 #else
     print1("Do you want to save this set-up to .omegarc in your home directory? [yn] ");
@@ -139,14 +139,14 @@ void save_omegarc()
   int i=VERSION;
   FILE *fd;
   change_to_user_perms();
-#if defined(MSDOS) || defined(AMIGA)
+#if defined(MSDOS) || defined(AMIGA) || defined(OMEGA_SHIM)
   fd = fopen("omega.rc","wb");
 #else
   sprintf(Str1, "%s/.omegarc", getenv("HOME"));
   fd = fopen(Str1,"w");
 #endif
   if (fd == NULL)
-#if defined(MSDOS) || defined(AMIGA)
+#if defined(MSDOS) || defined(AMIGA) || defined(OMEGA_SHIM)
     print1("Sorry, couldn't save omega.rc for some reason.");
 #else
     print1("Sorry, couldn't save .omegarc for some reason.");

@@ -26,7 +26,7 @@ redraw the screen excessively. */
 huge amounts of disk space and are annoyed at waiting a few more seconds
 on save and restore. */
 
-#define COMPRESS_SAVE_FILES
+/* #define COMPRESS_SAVE_FILES   port: no gzip in the browser */
 
 /* If your system has gzip, I recommend using it instead of compress */
 /* (try just typing 'gzip' at the shell prompt) */
@@ -55,7 +55,7 @@ on save and restore. */
 /* It would be downright insecure to comment this line out in a multi-user */
 /* environment, especially if you're going to run omega setuid.) */
 
-#define FIXED_OMEGALIB
+/* #define FIXED_OMEGALIB   port: play.sh sets OMEGALIB */
 
 /* set WIZARD to maintainers's username */
 
@@ -99,6 +99,8 @@ on save and restore. */
 # define COMPRESS_EXT "Z"
 # define EXT_LENGTH 1
 # endif
+#else
+# define EXT_LENGTH 0
 #endif
 
 #define VACANT 0
@@ -494,7 +496,7 @@ on save and restore. */
 #define RS_CORRIDOR 2
 #define RS_WALLSPACE 1
 
-#ifdef MSDOS
+#if defined(MSDOS) || defined(OMEGA_SHIM)
 
 #define COL_BLACK 0x0000
 #define COL_BLUE 0x0100
@@ -1386,7 +1388,7 @@ typedef oltype *pol;
 
 #include <stdlib.h>
 
-#ifdef MSDOS
+#if defined(MSDOS) || defined(OMEGA_SHIM)
 #include <time.h>
 #define getlogin() "pcuser"
 #endif
