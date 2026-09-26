@@ -311,6 +311,10 @@
 			Module.ENV.OMEGALIB = '/omegalib/';
 			Module.ENV.HOME = DIR;
 			Module.ENV.OMEGA_LINES = '40';
+			var who = '';                        /* Player.name = getlogin() (LOGNAME) unless rolled: ask once */
+			try { who = localStorage.getItem('omega-name') || ''; } catch (err) { /* no storage */ }
+			if (!who) { who = (prompt('What is your name, adventurer?', '') || '').replace(/[,\n]/g, '').trim().slice(0, 30); try { if (who) localStorage.setItem('omega-name', who); } catch (err) { /* no storage */ } }
+			if (who) Module.ENV.LOGNAME = who;
 			FS.mkdirTree(DIR);
 			FS.mount(Module.IDBFS, {}, DIR);
 			FS.chdir(DIR);

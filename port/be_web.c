@@ -5,6 +5,7 @@
 #include <emscripten.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include "curses.h"
 #include "../glob.h"
 
@@ -18,6 +19,26 @@ EM_JS(void, js_flush, (void), { Module.om.flush(); });
 EM_JS(int, js_key, (int at_cmd), { return Module.om.key(at_cmd); });
 EM_JS(int, js_want_save, (void), { return Module.om.wantSave(); });
 EM_JS(void, js_end, (int saved), { Module.om.end(saved); });
+/* Run report (roguelikes-index/server/CONTRACT.md): fire-and-forget GET,
+   never throws, offline just fails silently. Negative ints are omitted. */
+EM_JS(void, js_beacon, (const char *g, const char *ev, const char *name, const char *killer, int depth, int score, int turns, int lvl), {
+    try {
+        var p = [['g', UTF8ToString(g)], ['ev', UTF8ToString(ev)], ['name', name ? UTF8ToString(name) : ''],
+                 ['killer', killer ? UTF8ToString(killer) : ''], ['depth', depth], ['score', score], ['turns', turns], ['lvl', lvl]];
+        var q = p.filter(function (a) { return a[1] !== '' && !(a[1] < 0); })
+                 .map(function (a) { return a[0] + '=' + encodeURIComponent(a[1]); }).join('&');
+        fetch('/roguelikes/beacon?' + q, { keepalive: true, mode: 'no-cors' }).catch(function () {});
+    } catch (e) {}
+});
+/* scr.c display_death/win/quit/bigwin; score as checkhigh() counts it */
+void be_run_end(const char *ev, const char *k)
+{
+    if (k && !strncmp(k, "a ", 2)) k += 2;
+    else if (k && !strncmp(k, "an ", 3)) k += 3;
+    else if (k && !strncasecmp(k, "the ", 4)) k += 4;
+    js_beacon("omega", ev, Player.name, k, Level ? Level->depth : -1,
+              FixedPoints > 0 ? FixedPoints : calc_points(), Time, Player.level);
+}
 
 /* exit() (build.sh: -Dexit=wc_exit): Emscripten runs no atexit handlers, so
  * end the page here and idle; the player reloads (ponytail: the wasm stays up) */

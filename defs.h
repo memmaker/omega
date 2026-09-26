@@ -1392,7 +1392,12 @@ typedef oltype *pol;
 
 #if defined(MSDOS) || defined(OMEGA_SHIM)
 #include <time.h>
+#ifdef __EMSCRIPTEN__   /* web/omega.js asks the name once, passes LOGNAME */
+#include <stdlib.h>
+#define getlogin() (getenv("LOGNAME") ? getenv("LOGNAME") : "pcuser")
+#else
 #define getlogin() "pcuser"
+#endif
 #endif
 
 #undef sign
