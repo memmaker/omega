@@ -114,10 +114,10 @@
 			multi: { d: 'h', r: 0.68, a: { d: 'v', r: 0.84, a: { d: 'h', r: 0.82, a: 'map', b: 'side' }, b: 'stat' },
 				b: { d: 'v', r: 0.35, a: 'msg', b: { d: 'v', r: 0.6, a: 'inv', b: 'vis' } } },
 			single: 'map',
-			state: L.wm, noFont: 'map',
+			state: L.wm,
 			save: function (st) { L.wm = st; saveLayout(); },
 			layout: function (r) { rects = r; if (auto) { px = fit(); measure(); } dirty = true; draw(); },
-			font: function (id, d) { L.font = Math.max(8, Math.min(28, L.font + d)); fonts(); saveLayout(); },
+			font: function (id, d) { if (id === 'map') return zoom(d); L.font = Math.max(8, Math.min(28, L.font + d)); fonts(); saveLayout(); },
 			onReset: function () { auto = true; L.px = 0; L.font = 13; L.wm = wm.state(); fonts(); px = fit(); measure(); draw(); saveLayout(); }
 		});
 		wm.apply();
@@ -379,8 +379,6 @@
 		$('btn-tiles').onclick = toggleTiles;
 		$('btn-tiles').classList.toggle('on', tilesOn);
 		$('help-close').onclick = toggleHelp;
-		$('btn-zoom-in').onclick = function () { zoom(1); };
-		$('btn-zoom-out').onclick = function () { zoom(-1); };
 		$('btn-restart').onclick = function () { location.reload(); };
 		document.querySelectorAll('button').forEach(function (b) {
 			b.addEventListener('mousedown', function (e) { e.preventDefault(); });
