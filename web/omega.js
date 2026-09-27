@@ -24,7 +24,7 @@
 
 	var events = [], running = false, lastSave = 0;
 	var cols = 80, rows = 24, scr = null, cur = { y: 0, x: 0 }, hero = { y: 0, x: 0 };
-	var auto = true, cv, ctx, wm = null, rects = {}, LAYOUT = '/save/web-layout.json', L = { px: 0, font: 13, wm: null }, px = 18, cw = 11, ch = 22, dirty = true;
+	var auto = true, cv, ctx, wm = null, rects = {}, LAYOUT = '/save/web-layout.json', L = { px: 0, fs: {}, wm: null }, px = 18, cw = 11, ch = 22, dirty = true;
 	var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
 
 	/* message history: lines the game sends (be_msg), append 1 = run-on text,
@@ -101,10 +101,13 @@
 		scroll(c, (hero.x - q.x + 0.5) * w, (hero.y - q.y + 0.5) * ch);
 	}
 	function saveLayout() { try { Module.FS.writeFile(LAYOUT, JSON.stringify(L)); syncFiles(); } catch (e) { } }
-	function fonts() { ['log', 'inv', 'vis'].forEach(function (id) { $(id).style.fontSize = L.font + 'px'; }); }
+	function fs(id) { return L.fs[id] || 13; }
+	function fonts() {
+		['msg', 'inv', 'vis'].forEach(function (id) { $(id === 'msg' ? 'log' : id).style.fontSize = fs(id) + 'px'; });
+	}
 	/* the shared tiling window manager (rvip-wm.js, RVIP.md 5b) */
 	function makeWM() {
-		try { var s = JSON.parse(Module.FS.readFile(LAYOUT, { encoding: 'utf8' })); if (s) L = { px: s.px | 0, font: s.font || 13, wm: s.wm }; } catch (e) { }
+		try { var s = JSON.parse(Module.FS.readFile(LAYOUT, { encoding: 'utf8' })); if (s) L = { px: s.px | 0, fs: s.fs || { msg: s.font, inv: s.font, vis: s.font }, wm: s.wm }; } catch (e) { }
 		if (L.px >= 8 && L.px <= 40) { px = L.px; auto = false; measure(); }
 		fonts();
 		wm = RvipWM({
@@ -117,8 +120,8 @@
 			state: L.wm, noFont: 'map',
 			save: function (st) { L.wm = st; saveLayout(); },
 			layout: function (r) { rects = r; if (auto) { px = fit(); measure(); } dirty = true; draw(); },
-			font: function (id, d) { L.font = Math.max(8, Math.min(28, L.font + d)); fonts(); saveLayout(); },
-			onReset: function () { auto = true; L.px = 0; L.font = 13; L.wm = wm.state(); fonts(); px = fit(); measure(); draw(); saveLayout(); }
+			font: function (id, d) { if (['msg', 'inv', 'vis'].indexOf(id) < 0) return; L.fs[id] = Math.max(8, Math.min(28, fs(id) + d)); fonts(); saveLayout(); },   /* each window its own size */
+			onReset: function () { auto = true; L.px = 0; L.fs = {}; L.wm = wm.state(); fonts(); px = fit(); measure(); draw(); saveLayout(); }
 		});
 		wm.apply();
 	}
