@@ -24,7 +24,7 @@
 
 	var events = [], running = false, lastSave = 0;
 	var cols = 80, rows = 24, scr = null, cur = { y: 0, x: 0 }, hero = { y: 0, x: 0 };
-	var auto = true, cv, ctx, wm = null, rects = {}, LAYOUT = '/save/web-layout.json', L = { px: 0, fs: {}, wm: null }, px = 18, cw = 11, ch = 22, dirty = true;
+	var auto = true, cv, ctx, wm = null, rects = {}, LAYOUT = '/save/web-layout.json', L = { px: 0, wm: null }, px = 18, cw = 11, ch = 22, dirty = true;
 	var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
 
 	/* message history: lines the game sends (be_msg), append 1 = run-on text,
@@ -52,11 +52,18 @@
 		size(cv, cols * cw, rows * ch);
 		dirty = true;
 	}
-	function size(c, w, h, map) {
+	/* cell metrics of a pane: the map follows the zoom (px), Side panel and Status their own A−/A+ size */
+	function met(p) {
+		if (p === MAP) return { px: px, cw: cw, ch: ch };
+		var f = RvipWM.fontSize(PANE_BOX[p]);
+		ctx.font = f + 'px ' + face(false);
+		return { px: f, cw: Math.ceil(ctx.measureText('M').width), ch: Math.ceil(f * 1.2) };
+	}
+	function size(c, w, h, map, f) {
 		if (c.width !== w * dpr || c.height !== h * dpr) { c.width = w * dpr; c.height = h * dpr; }
 		c.style.width = w + 'px'; c.style.height = h + 'px';
 		var g = c.getContext('2d');
-		g.setTransform(dpr, 0, 0, dpr, 0, 0); g.font = px + 'px ' + face(map); g.textBaseline = 'top';
+		g.setTransform(dpr, 0, 0, dpr, 0, 0); g.font = (f || px) + 'px ' + face(map); g.textBaseline = 'top';
 		return g;
 	}
 	/* biggest font that shows the map (single window: the whole screen) in the map window */
@@ -70,12 +77,13 @@
 	}
 	/* the map camera (RVIP.md W4): (fx, fy) centred, clamped at the edges */
 	function scroll(c, fx, fy) { RvipWM.center(c, fx, fy, parseFloat(c.style.width), parseFloat(c.style.height)); }
-	function cell(g, v, x, y, w) {
+	function cell(g, v, x, y, w, m) {
+		m = m || { px: px, cw: cw, ch: ch };
 		var c = v & 0xff, fg = v >> 8 & 15, bg = v >> 12 & 7, t;
 		if (!(v & A_COLOR)) fg = 7;
 		if (v & A_STANDOUT) { t = fg; fg = bg; bg = t; }
-		if (bg) { g.fillStyle = PAL[bg]; g.fillRect(x, y, w, ch); }
-		if (c > 32) { g.fillStyle = PAL[fg]; g.fillText(String.fromCharCode(c), x + (w - cw) / 2, y + (ch - px) / 2); }
+		if (bg) { g.fillStyle = PAL[bg]; g.fillRect(x, y, w, m.ch); }
+		if (c > 32) { g.fillStyle = PAL[fg]; g.fillText(String.fromCharCode(c), x + (w - m.cw) / 2, y + (m.ch - m.px) / 2); }
 	}
 	function paneText(p) {
 		var q = P[p];
@@ -84,16 +92,17 @@
 		return t.replace(new RegExp('.{' + q.c + '}', 'g'), '$&\n').replace(/ +$/gm, '').trim();
 	}
 	function drawPane(p) {
-		var q = P[p], c = $(PANE_BOX[p]).firstChild, w = p === MAP && tilesOn ? ch : cw;
+		var q = P[p], c = $(PANE_BOX[p]).firstChild;
 		if (!q || !c) return;
-		var g = size(c, q.c * w, q.r * ch, p === MAP);
+		var m = met(p), ch = m.ch, w = p === MAP && tilesOn ? ch : m.cw;
+		var g = size(c, q.c * w, q.r * ch, p === MAP, m.px);
 		g.fillStyle = '#000'; g.fillRect(0, 0, q.c * w, q.r * ch);
 		g.imageSmoothingEnabled = false;
 		for (var y = 0; y < q.r; y++)
 			for (var x = 0; x < q.c; x++) {
 				var v = q.buf[y * q.c + x], t = v >>> 18;
 				if (p === MAP && tilesOn && t-- && sheet.complete && sheet.naturalWidth) g.drawImage(sheet, t % 128 * 32, (t >> 7) * 32, 32, 32, x * w, y * ch, w, ch);
-				else cell(g, v, x * w, y * ch, w);
+				else cell(g, v, x * w, y * ch, w, m);
 			}
 		if (p !== MAP) return;
 		var cy = cur.y - q.y, cx = cur.x - q.x;
@@ -103,9 +112,8 @@
 		scroll(c, (hero.x - q.x + 0.5) * w, (hero.y - q.y + 0.5) * ch);
 	}
 	function saveLayout() { try { Module.FS.writeFile(LAYOUT, JSON.stringify(L)); syncFiles(); } catch (e) { } }
-	function fs(id) { return L.fs[id] || 13; }
 	function fonts() {
-		['msg', 'inv', 'vis'].forEach(function (id) { var e = $(id === 'msg' ? 'log' : id); e.style.fontSize = fs(id) + 'px'; e.style.fontFamily = L.face ? '"' + L.face + '", monospace' : ''; });
+		['log', 'inv', 'vis'].forEach(function (id) { $(id).style.fontFamily = L.face ? '"' + L.face + '", monospace' : ''; });
 	}
 	/* a face from the index page's fonts/ (web/build.sh lists them in fonts.json) */
 	function loadFace(n, now) {
@@ -127,7 +135,9 @@
 	}
 	/* the shared tiling window manager (rvip-wm.js, RVIP.md 5b) */
 	function makeWM() {
-		try { var s = JSON.parse(Module.FS.readFile(LAYOUT, { encoding: 'utf8' })); if (s) L = { px: s.px | 0, fs: s.fs || { msg: s.font, inv: s.font, vis: s.font }, wm: s.wm, face: typeof s.face === 'string' ? s.face : '', mapFace: typeof s.mapFace === 'string' ? s.mapFace : '' }; } catch (e) { }
+		try { var s = JSON.parse(Module.FS.readFile(LAYOUT, { encoding: 'utf8' })); if (s) { L = { px: s.px | 0, wm: s.wm, face: typeof s.face === 'string' ? s.face : '', mapFace: typeof s.mapFace === 'string' ? s.mapFace : '' };
+			var old = s.fs || (s.font && { msg: s.font, inv: s.font, vis: s.font });   /* old layout: sizes move to the WM */
+			if (old && L.wm && !L.wm.fs) L.wm.fs = old; } } catch (e) { }
 		$('sel-font').value = L.face || '';
 		loadFace(L.face); loadFace(L.mapFace);
 		if (L.px >= 8 && L.px <= 40) { px = L.px; auto = false; measure(); }
@@ -142,8 +152,8 @@
 			state: L.wm,
 			save: function (st) { L.wm = st; saveLayout(); },
 			layout: function (r) { rects = r; renderMapSel(); if (auto) { px = fit(); measure(); } dirty = true; draw(); },
-			font: function (id, d) { if (id === 'map') return zoom(d); if (['msg', 'inv', 'vis'].indexOf(id) < 0) return; L.fs[id] = Math.max(8, Math.min(28, fs(id) + d)); fonts(); saveLayout(); },   /* each window its own size */
-			onReset: function () { auto = true; L.px = 0; L.fs = {}; L.wm = wm.state(); fonts(); px = fit(); measure(); draw(); saveLayout(); }
+			zoom: { map: function (s, d) { zoom(d); }, side: redraw, stat: redraw },   /* map: its zoom; Side panel, Status: canvases at their own size */
+			onReset: function () { auto = true; L.px = 0; L.wm = wm.state(); fonts(); px = fit(); measure(); draw(); saveLayout(); }
 		});
 		wm.apply();
 	}
@@ -199,6 +209,7 @@
 		renderLists(true);
 		dirty = true; draw();
 	}
+	function redraw() { dirty = true; draw(); }
 	function zoom(d) {
 		auto = false;
 		px = Math.max(8, Math.min(40, px + d));
