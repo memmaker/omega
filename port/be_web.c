@@ -96,7 +96,6 @@ void be_end(void) { }
 
 int be_getkey(int wait)
 {
-    static double last;
     int k;
     for (;;) {
         if (Rl_at_prompt && js_want_save()) {
@@ -105,11 +104,8 @@ int be_getkey(int wait)
             Rl_at_prompt = 1;
         }
         if ((k = js_key(Rl_at_prompt)) >= 0) return k;
-        if (!wait) {                /* polling (explore): let the page paint */
-            if (emscripten_get_now() - last > 50) {
-                last = emscripten_get_now();
-                emscripten_sleep(0);
-            }
+        if (!wait) {                /* polling (explore): paint each step */
+            emscripten_sleep(40);
             return -1;
         }
         emscripten_sleep(10);
