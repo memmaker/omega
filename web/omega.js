@@ -191,7 +191,7 @@
 		pput: function (p, y, x, v) { P[p].buf[y * P[p].c + x] = v; dirty = true; },
 		popup: function (on) { if (popup !== !!on) { popup = !!on; dirty = true; } },
 		msg: msg,
-		flush: function () { draw(); },
+		flush: function () { var l = $('log'); l.scrollTop = l.scrollHeight; draw(); },
 		lists: function (inv, vis) { lastInv = inv; lastVis = vis; renderLists(); },
 		/* atCmd: the game waits for a command, not a y/n or item prompt */
 		key: function (atCmd) { RvipWM.prompt.wait(atCmd); return events.length ? events.shift() : -1; },
