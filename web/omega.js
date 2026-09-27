@@ -95,7 +95,7 @@
 			}
 		if (p !== MAP) return;
 		var cy = cur.y - q.y, cx = cur.x - q.x;
-		if (cy >= 0 && cy < q.r && cx >= 0 && cx < q.c) {
+		if (cy >= 0 && cy < q.r && cx >= 0 && cx < q.c && !(cur.y === hero.y && cur.x === hero.x)) {
 			g.strokeStyle = PAL[14]; g.lineWidth = 1; g.strokeRect(cx * w + 0.5, cy * ch + 0.5, w - 1, ch - 1);
 		}
 		scroll(c, (hero.x - q.x + 0.5) * w, (hero.y - q.y + 0.5) * ch);
@@ -139,7 +139,7 @@
 		for (var y = 0; y < rows; y++)
 			for (var x = 0; x < cols; x++)
 				if (!(tilesOn && x < MAPW && scr[y * cols + x] & A_TILE)) cell(ctx, scr[y * cols + x], x * cw, y * ch, cw);
-		if (!(tilesOn && drawTiles())) { ctx.fillStyle = PAL[7]; ctx.fillRect(cur.x * cw, cur.y * ch + ch - 2, cw, 2); }
+		if (!(tilesOn && drawTiles())) { if (cur.y !== hero.y || cur.x !== hero.x) { ctx.fillStyle = PAL[7]; ctx.fillRect(cur.x * cw, cur.y * ch + ch - 2, cw, 2); } }
 		if (one) { size(cv, cols * cw, rows * ch); return scroll(cv, (hero.x + 0.5) * cw, (hero.y + 0.5) * ch); }
 		/* pop-up over the panes: the whole screen, scaled down to fit */
 		var b = $('full'), s = Math.min(1, b.clientWidth / (cols * cw), b.clientHeight / (rows * ch));
@@ -160,6 +160,7 @@
 			}
 		}
 		if (!onMap) return false;
+		if (cur.y === hero.y && cur.x === hero.x) return true;   /* no cursor on the hero */
 		ctx.strokeStyle = PAL[14]; ctx.lineWidth = 1;
 		ctx.strokeRect((cur.x - tox) * T + 0.5, cur.y * ch + 0.5, T - 1, T - 1);
 		return true;
