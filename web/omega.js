@@ -16,7 +16,7 @@
 	 * scrolled sideways to keep the player (cursor) in view, like WinOmega */
 	var tilesOn = true, sheet = new Image(), tox = 0;
 	try { tilesOn = localStorage.getItem('omega-tiles') !== '0'; } catch (e) { }
-	sheet.onload = function () { dirty = true; draw(); };
+	sheet.onload = function () { dirty = true; draw(); if (tilesOn) renderLists(true); };
 	sheet.src = 'tiles.png';
 	/* arrows and keypad = Omega's number keys (moving, and 8/2 in lists) */
 	var KEYS = { ArrowUp: 56, ArrowDown: 50, ArrowLeft: 52, ArrowRight: 54, Home: 55, PageUp: 57,
@@ -168,6 +168,7 @@
 		tilesOn = !tilesOn;
 		try { localStorage.setItem('omega-tiles', tilesOn ? '1' : '0'); } catch (e) { }
 		$('btn-tiles').classList.toggle('on', tilesOn);
+		renderLists(true);
 		dirty = true; draw();
 	}
 	function zoom(d) {
@@ -191,15 +192,7 @@
 		popup: function (on) { if (popup !== !!on) { popup = !!on; dirty = true; } },
 		msg: msg,
 		flush: function () { draw(); },
-		lists: function (inv, vis) {
-			$('inv').innerHTML = '';
-			inv.split('\n').forEach(function (l) {
-				if (!l) return;
-				var t = l.split('\t'), d = document.createElement('div');
-				d.textContent = t[1]; d.style.color = PAL[+t[0] || 7]; $('inv').appendChild(d);
-			});
-			RvipWM.visible($('vis'), vis.replace(/\t(\d+)$/gm, function (m, c) { return '\t' + PAL[+c || 7]; }));
-		},
+		lists: function (inv, vis) { lastInv = inv; lastVis = vis; renderLists(); },
 		/* atCmd: the game waits for a command, not a y/n or item prompt */
 		key: function (atCmd) { RvipWM.prompt.wait(atCmd); return events.length ? events.shift() : -1; },
 		/* autosave at most every 2 s, and when the page is hidden */
@@ -220,6 +213,30 @@
 		}
 	};
 	var wantSaveFlag = false;   /* a key was pressed since the last autosave */
+	/* Inventory and Visible windows from the lines be_web.c sends (tile and glyph
+	 * chosen there): in tile mode the tile as an icon, in text mode the glyph */
+	var lastInv = '', lastVis = '';
+	function icon(t) {
+		if (!tilesOn || !(t >= 0) || !sheet.naturalWidth) return null;
+		var i = document.createElement('i');
+		i.className = 'wm-ic';
+		i.style.cssText = 'image-rendering:pixelated;background:url(' + sheet.src + ') -' + (t % 128) * 16 + 'px -' + (t >> 7) * 16 + 'px/' + sheet.naturalWidth / 2 + 'px auto';
+		return i;
+	}
+	function renderLists(force) {
+		var box = $('inv');
+		box.innerHTML = '';
+		lastInv.split('\n').forEach(function (l) {
+			if (!l) return;
+			var t = l.split('\t'), d = document.createElement('div'), ic = icon(+t[3]), b;
+			d.style.color = PAL[+t[0] || 7];
+			if (!ic) { ic = document.createElement('b'); ic.textContent = t[1]; ic.className = 'glyph'; }
+			b = document.createElement('span'); b.textContent = t[2];
+			d.appendChild(ic); d.appendChild(b); box.appendChild(d);
+		});
+		if (force) $('vis')._vis = null;   /* tile switch: redraw the same text */
+		RvipWM.visible($('vis'), lastVis.replace(/\t(\d+)\t/gm, function (m, c) { return '\t' + PAL[+c || 7] + '\t'; }), icon);
+	}   /* a key was pressed since the last autosave */
 
 	/* ---------- input ---------- */
 	function onKey(e) {
