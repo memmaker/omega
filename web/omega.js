@@ -16,7 +16,7 @@
 	 * scrolled sideways to keep the player (cursor) in view, like WinOmega */
 	var tilesOn = true, sheet = new Image(), tox = 0;
 	try { tilesOn = localStorage.getItem('omega-tiles') !== '0'; } catch (e) { }
-	sheet.onload = function () { dirty = true; draw(); };
+	sheet.onload = function () { dirty = true; draw(); if (tilesOn) renderLists(true); };
 	sheet.src = 'tiles.png';
 	/* arrows and keypad = Omega's number keys (moving, and 8/2 in lists) */
 	var KEYS = { ArrowUp: 56, ArrowDown: 50, ArrowLeft: 52, ArrowRight: 54, Home: 55, PageUp: 57,
@@ -44,24 +44,26 @@
 
 	/* ---------- drawing: the whole screen (cv) and one canvas per pane, all from the game's cells ---------- */
 	var MAP = 1, SIDE = 2, STAT = 3, MSG = 4, PANE_BOX = { 1: 'map', 2: 'side', 3: 'stat' }, P = {}, popup = true;
+	/* fonts: L.face for the text windows and pop-ups, L.mapFace for the map (text mode) */
+	function face(map) { var n = map ? L.mapFace : L.face; return n ? '"' + n + '", ' + FONT : FONT; }
 	function measure() {
-		ctx.font = px + 'px ' + FONT;
+		ctx.font = px + 'px ' + face(true);
 		cw = Math.ceil(ctx.measureText('M').width); ch = Math.ceil(px * 1.2);
 		size(cv, cols * cw, rows * ch);
 		dirty = true;
 	}
-	function size(c, w, h) {
+	function size(c, w, h, map) {
 		if (c.width !== w * dpr || c.height !== h * dpr) { c.width = w * dpr; c.height = h * dpr; }
 		c.style.width = w + 'px'; c.style.height = h + 'px';
 		var g = c.getContext('2d');
-		g.setTransform(dpr, 0, 0, dpr, 0, 0); g.font = px + 'px ' + FONT; g.textBaseline = 'top';
+		g.setTransform(dpr, 0, 0, dpr, 0, 0); g.font = px + 'px ' + face(map); g.textBaseline = 'top';
 		return g;
 	}
 	/* biggest font that shows the map (single window: the whole screen) in the map window */
 	function fit() {
 		var b = $('map'), best = 8, one = !rects.side && !rects.stat, w = one ? cols : (P[MAP] ? P[MAP].c : 64), h = one ? rows : (P[MAP] ? P[MAP].r : rows - 6);
 		for (var p = 8; p <= 40; p++) {
-			ctx.font = p + 'px ' + FONT;
+			ctx.font = p + 'px ' + face(true);
 			if (Math.ceil(ctx.measureText('M').width) * w <= b.clientWidth && Math.ceil(p * 1.2) * h <= b.clientHeight) best = p;
 		}
 		return best;
@@ -84,7 +86,7 @@
 	function drawPane(p) {
 		var q = P[p], c = $(PANE_BOX[p]).firstChild, w = p === MAP && tilesOn ? ch : cw;
 		if (!q || !c) return;
-		var g = size(c, q.c * w, q.r * ch);
+		var g = size(c, q.c * w, q.r * ch, p === MAP);
 		g.fillStyle = '#000'; g.fillRect(0, 0, q.c * w, q.r * ch);
 		g.imageSmoothingEnabled = false;
 		for (var y = 0; y < q.r; y++)
@@ -95,7 +97,7 @@
 			}
 		if (p !== MAP) return;
 		var cy = cur.y - q.y, cx = cur.x - q.x;
-		if (cy >= 0 && cy < q.r && cx >= 0 && cx < q.c) {
+		if (cy >= 0 && cy < q.r && cx >= 0 && cx < q.c && !(cur.y === hero.y && cur.x === hero.x)) {
 			g.strokeStyle = PAL[14]; g.lineWidth = 1; g.strokeRect(cx * w + 0.5, cy * ch + 0.5, w - 1, ch - 1);
 		}
 		scroll(c, (hero.x - q.x + 0.5) * w, (hero.y - q.y + 0.5) * ch);
@@ -103,11 +105,31 @@
 	function saveLayout() { try { Module.FS.writeFile(LAYOUT, JSON.stringify(L)); syncFiles(); } catch (e) { } }
 	function fs(id) { return L.fs[id] || 13; }
 	function fonts() {
-		['msg', 'inv', 'vis'].forEach(function (id) { $(id === 'msg' ? 'log' : id).style.fontSize = fs(id) + 'px'; });
+		['msg', 'inv', 'vis'].forEach(function (id) { var e = $(id === 'msg' ? 'log' : id); e.style.fontSize = fs(id) + 'px'; e.style.fontFamily = L.face ? '"' + L.face + '", monospace' : ''; });
+	}
+	/* a face from the index page's fonts/ (web/build.sh lists them in fonts.json) */
+	function loadFace(n, now) {
+		var redraw = function () { fonts(); measure(); draw(); };
+		if (!n) { if (now) redraw(); return; }
+		var ff = new FontFace(n, 'url(../fonts/' + n + '.woff)');
+		ff.load().then(function () { document.fonts.add(ff); redraw(); }).catch(function () { status('Could not load the font ' + n + '.', true); });
+	}
+	/* map font chooser: on the Map title bar (shown on hover), text mode only */
+	var mapSel = document.createElement('select');
+	mapSel.title = 'Map font (text mode)';
+	mapSel.innerHTML = '<option value="">Default font</option>';
+	mapSel.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+	function renderMapSel() {
+		var bs = document.querySelector('#t-map .wm-btns');
+		if (bs && mapSel.parentNode !== bs) bs.insertBefore(mapSel, bs.firstChild);
+		mapSel.hidden = tilesOn;
+		mapSel.value = L.mapFace || '';
 	}
 	/* the shared tiling window manager (rvip-wm.js, RVIP.md 5b) */
 	function makeWM() {
-		try { var s = JSON.parse(Module.FS.readFile(LAYOUT, { encoding: 'utf8' })); if (s) L = { px: s.px | 0, fs: s.fs || { msg: s.font, inv: s.font, vis: s.font }, wm: s.wm }; } catch (e) { }
+		try { var s = JSON.parse(Module.FS.readFile(LAYOUT, { encoding: 'utf8' })); if (s) L = { px: s.px | 0, fs: s.fs || { msg: s.font, inv: s.font, vis: s.font }, wm: s.wm, face: typeof s.face === 'string' ? s.face : '', mapFace: typeof s.mapFace === 'string' ? s.mapFace : '' }; } catch (e) { }
+		$('sel-font').value = L.face || '';
+		loadFace(L.face); loadFace(L.mapFace);
 		if (L.px >= 8 && L.px <= 40) { px = L.px; auto = false; measure(); }
 		fonts();
 		wm = RvipWM({
@@ -117,10 +139,10 @@
 			multi: { d: 'h', r: 0.68, a: { d: 'v', r: 0.84, a: { d: 'h', r: 0.82, a: 'map', b: 'side' }, b: 'stat' },
 				b: { d: 'v', r: 0.35, a: 'msg', b: { d: 'v', r: 0.6, a: 'inv', b: 'vis' } } },
 			single: 'map',
-			state: L.wm, noFont: 'map',
+			state: L.wm,
 			save: function (st) { L.wm = st; saveLayout(); },
-			layout: function (r) { rects = r; if (auto) { px = fit(); measure(); } dirty = true; draw(); },
-			font: function (id, d) { if (['msg', 'inv', 'vis'].indexOf(id) < 0) return; L.fs[id] = Math.max(8, Math.min(28, fs(id) + d)); fonts(); saveLayout(); },   /* each window its own size */
+			layout: function (r) { rects = r; renderMapSel(); if (auto) { px = fit(); measure(); } dirty = true; draw(); },
+			font: function (id, d) { if (id === 'map') return zoom(d); if (['msg', 'inv', 'vis'].indexOf(id) < 0) return; L.fs[id] = Math.max(8, Math.min(28, fs(id) + d)); fonts(); saveLayout(); },   /* each window its own size */
 			onReset: function () { auto = true; L.px = 0; L.fs = {}; L.wm = wm.state(); fonts(); px = fit(); measure(); draw(); saveLayout(); }
 		});
 		wm.apply();
@@ -138,12 +160,13 @@
 	}
 	function drawFull(one) {
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		ctx.font = px + 'px ' + face(one);
 		ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cols * cw, rows * ch);
 		for (var y = 0; y < rows; y++)
 			for (var x = 0; x < cols; x++)
 				if (!(tilesOn && x < MAPW && scr[y * cols + x] & A_TILE)) cell(ctx, scr[y * cols + x], x * cw, y * ch, cw);
-		if (!(tilesOn && drawTiles())) { ctx.fillStyle = PAL[7]; ctx.fillRect(cur.x * cw, cur.y * ch + ch - 2, cw, 2); }
-		if (one) { size(cv, cols * cw, rows * ch); return scroll(cv, (hero.x + 0.5) * cw, (hero.y + 0.5) * ch); }
+		if (!(tilesOn && drawTiles())) { if (cur.y !== hero.y || cur.x !== hero.x) { ctx.fillStyle = PAL[7]; ctx.fillRect(cur.x * cw, cur.y * ch + ch - 2, cw, 2); } }
+		if (one) { size(cv, cols * cw, rows * ch, true); return scroll(cv, (hero.x + 0.5) * cw, (hero.y + 0.5) * ch); }
 		/* pop-up over the panes: the whole screen, scaled down to fit */
 		var b = $('full'), s = Math.min(1, b.clientWidth / (cols * cw), b.clientHeight / (rows * ch));
 		cv.style.width = cols * cw * s + 'px'; cv.style.height = rows * ch * s + 'px';
@@ -163,6 +186,7 @@
 			}
 		}
 		if (!onMap) return false;
+		if (cur.y === hero.y && cur.x === hero.x) return true;   /* no cursor on the hero */
 		ctx.strokeStyle = PAL[14]; ctx.lineWidth = 1;
 		ctx.strokeRect((cur.x - tox) * T + 0.5, cur.y * ch + 0.5, T - 1, T - 1);
 		return true;
@@ -171,6 +195,8 @@
 		tilesOn = !tilesOn;
 		try { localStorage.setItem('omega-tiles', tilesOn ? '1' : '0'); } catch (e) { }
 		$('btn-tiles').classList.toggle('on', tilesOn);
+		renderMapSel();
+		renderLists(true);
 		dirty = true; draw();
 	}
 	function zoom(d) {
@@ -193,16 +219,8 @@
 		pput: function (p, y, x, v) { P[p].buf[y * P[p].c + x] = v; dirty = true; },
 		popup: function (on) { if (popup !== !!on) { popup = !!on; dirty = true; } },
 		msg: msg,
-		flush: function () { draw(); },
-		lists: function (inv, vis) {
-			$('inv').innerHTML = '';
-			inv.split('\n').forEach(function (l) {
-				if (!l) return;
-				var t = l.split('\t'), d = document.createElement('div');
-				d.textContent = t[1]; d.style.color = PAL[+t[0] || 7]; $('inv').appendChild(d);
-			});
-			RvipWM.visible($('vis'), vis.replace(/\t(\d+)$/gm, function (m, c) { return '\t' + PAL[+c || 7]; }));
-		},
+		flush: function () { var l = $('log'); l.scrollTop = l.scrollHeight; draw(); },
+		lists: function (inv, vis) { lastInv = inv; lastVis = vis; renderLists(); },
 		/* atCmd: the game waits for a command, not a y/n or item prompt */
 		key: function (atCmd) { RvipWM.prompt.wait(atCmd); return events.length ? events.shift() : -1; },
 		/* autosave at most every 2 s, and when the page is hidden */
@@ -223,6 +241,30 @@
 		}
 	};
 	var wantSaveFlag = false;   /* a key was pressed since the last autosave */
+	/* Inventory and Visible windows from the lines be_web.c sends (tile and glyph
+	 * chosen there): in tile mode the tile as an icon, in text mode the glyph */
+	var lastInv = '', lastVis = '';
+	function icon(t) {
+		if (!tilesOn || !(t >= 0) || !sheet.naturalWidth) return null;
+		var i = document.createElement('i');
+		i.className = 'wm-ic';
+		i.style.cssText = 'image-rendering:pixelated;background:url(' + sheet.src + ') -' + (t % 128) * 16 + 'px -' + (t >> 7) * 16 + 'px/' + sheet.naturalWidth / 2 + 'px auto';
+		return i;
+	}
+	function renderLists(force) {
+		var box = $('inv');
+		box.innerHTML = '';
+		lastInv.split('\n').forEach(function (l) {
+			if (!l) return;
+			var t = l.split('\t'), d = document.createElement('div'), ic = icon(+t[3]), b;
+			d.style.color = PAL[+t[0] || 7];
+			if (!ic) { ic = document.createElement('b'); ic.textContent = t[1]; ic.className = 'glyph'; }
+			b = document.createElement('span'); b.textContent = t[2];
+			d.appendChild(ic); d.appendChild(b); box.appendChild(d);
+		});
+		if (force) $('vis')._vis = null;   /* tile switch: redraw the same text */
+		RvipWM.visible($('vis'), lastVis.replace(/\t(\d+)\t/gm, function (m, c) { return '\t' + PAL[+c || 7] + '\t'; }), icon);
+	}   /* a key was pressed since the last autosave */
 
 	/* ---------- input ---------- */
 	function onKey(e) {
@@ -364,8 +406,16 @@
 		$('btn-tiles').onclick = toggleTiles;
 		$('btn-tiles').classList.toggle('on', tilesOn);
 		$('help-close').onclick = toggleHelp;
-		$('btn-zoom-in').onclick = function () { zoom(1); };
-		$('btn-zoom-out').onclick = function () { zoom(-1); };
+		RvipWM.dropdown($('btn-file'), $('menu-file'));
+		fetch('fonts.json').then(function (r) { return r.json(); }).then(function (list) {
+			[[$('sel-font'), 'face'], [mapSel, 'mapFace']].forEach(function (a) {
+				list.forEach(function (n) { var o = document.createElement('option'); o.value = n; o.textContent = n.replace(/^Web(Plus|437)_/, '').replace(/_/g, ' '); a[0].appendChild(o); });
+				a[0].value = L[a[1]] || '';
+			});
+		}).catch(function () { });
+		[[$('sel-font'), 'face'], [mapSel, 'mapFace']].forEach(function (a) {
+			a[0].onchange = function () { L[a[1]] = this.value; saveLayout(); loadFace(this.value, true); this.blur(); };
+		});
 		$('btn-restart').onclick = function () { location.reload(); };
 		document.querySelectorAll('button').forEach(function (b) {
 			b.addEventListener('mousedown', function (e) { e.preventDefault(); });

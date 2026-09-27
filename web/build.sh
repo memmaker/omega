@@ -17,5 +17,9 @@ emcc -O2 -std=gnu89 -w -fcommon -DUNIX -DSYSV -DOMEGA_SHIM -Dusleep=wc_usleep -D
 	-sEXPORTED_RUNTIME_METHODS=FS,IDBFS,ENV,addRunDependency,removeRunDependency \
 	-sFORCE_FILESYSTEM -lidbfs.js -sENVIRONMENT=web
 cp web/index.html web/omega.js web/tiles.png "$OUT/"
+# text fonts: the index page's fonts/ (served at ../fonts/ next to the games)
+if [ -d ~/Games/roguelikes-index/fonts ]; then
+	(cd ~/Games/roguelikes-index/fonts && ls *.woff | sed 's/\.woff$//') | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().split()))' > "$OUT/fonts.json"
+else echo '[]' > "$OUT/fonts.json"; fi
 python3 web/make-help.py > "$OUT/help.html"
 ls -la "$OUT"

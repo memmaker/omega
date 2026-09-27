@@ -1113,7 +1113,7 @@ void display_death(source)
 char *source;
 {
 #ifdef __EMSCRIPTEN__
-  { void be_run_end(); be_run_end("death", source); }
+  { void be_run_end(const char *, const char *); be_run_end("death", source); }
 #endif
   clear();
   touchwin(stdscr);
@@ -1140,7 +1140,7 @@ char *source;
 void display_win()
 {
 #ifdef __EMSCRIPTEN__
-  { void be_run_end(); be_run_end("win", 0); }
+  { void be_run_end(const char *, const char *); be_run_end("win", (char *)0); }
 #endif
   clear();
   touchwin(stdscr);
@@ -1169,7 +1169,7 @@ void display_win()
 void display_quit()
 {
 #ifdef __EMSCRIPTEN__
-  { void be_run_end(); be_run_end("quit", 0); }
+  { void be_run_end(const char *, const char *); be_run_end("quit", (char *)0); }
 #endif
   clear();
   touchwin(stdscr);
@@ -1191,7 +1191,7 @@ void display_quit()
 void display_bigwin()
 {
 #ifdef __EMSCRIPTEN__
-  { void be_run_end(); be_run_end("win", 0); }
+  { void be_run_end(const char *, const char *); be_run_end("win", (char *)0); }
 #endif
   clear();
   touchwin(stdscr);
