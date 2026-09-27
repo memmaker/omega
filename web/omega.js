@@ -44,24 +44,26 @@
 
 	/* ---------- drawing: the whole screen (cv) and one canvas per pane, all from the game's cells ---------- */
 	var MAP = 1, SIDE = 2, STAT = 3, MSG = 4, PANE_BOX = { 1: 'map', 2: 'side', 3: 'stat' }, P = {}, popup = true;
+	/* fonts: L.face for the text windows and pop-ups, L.mapFace for the map (text mode) */
+	function face(map) { var n = map ? L.mapFace : L.face; return n ? '"' + n + '", ' + FONT : FONT; }
 	function measure() {
-		ctx.font = px + 'px ' + FONT;
+		ctx.font = px + 'px ' + face(true);
 		cw = Math.ceil(ctx.measureText('M').width); ch = Math.ceil(px * 1.2);
 		size(cv, cols * cw, rows * ch);
 		dirty = true;
 	}
-	function size(c, w, h) {
+	function size(c, w, h, map) {
 		if (c.width !== w * dpr || c.height !== h * dpr) { c.width = w * dpr; c.height = h * dpr; }
 		c.style.width = w + 'px'; c.style.height = h + 'px';
 		var g = c.getContext('2d');
-		g.setTransform(dpr, 0, 0, dpr, 0, 0); g.font = px + 'px ' + FONT; g.textBaseline = 'top';
+		g.setTransform(dpr, 0, 0, dpr, 0, 0); g.font = px + 'px ' + face(map); g.textBaseline = 'top';
 		return g;
 	}
 	/* biggest font that shows the map (single window: the whole screen) in the map window */
 	function fit() {
 		var b = $('map'), best = 8, one = !rects.side && !rects.stat, w = one ? cols : (P[MAP] ? P[MAP].c : 64), h = one ? rows : (P[MAP] ? P[MAP].r : rows - 6);
 		for (var p = 8; p <= 40; p++) {
-			ctx.font = p + 'px ' + FONT;
+			ctx.font = p + 'px ' + face(true);
 			if (Math.ceil(ctx.measureText('M').width) * w <= b.clientWidth && Math.ceil(p * 1.2) * h <= b.clientHeight) best = p;
 		}
 		return best;
@@ -84,7 +86,7 @@
 	function drawPane(p) {
 		var q = P[p], c = $(PANE_BOX[p]).firstChild, w = p === MAP && tilesOn ? ch : cw;
 		if (!q || !c) return;
-		var g = size(c, q.c * w, q.r * ch);
+		var g = size(c, q.c * w, q.r * ch, p === MAP);
 		g.fillStyle = '#000'; g.fillRect(0, 0, q.c * w, q.r * ch);
 		g.imageSmoothingEnabled = false;
 		for (var y = 0; y < q.r; y++)
@@ -101,10 +103,30 @@
 		scroll(c, (hero.x - q.x + 0.5) * w, (hero.y - q.y + 0.5) * ch);
 	}
 	function saveLayout() { try { Module.FS.writeFile(LAYOUT, JSON.stringify(L)); syncFiles(); } catch (e) { } }
-	function fonts() { ['log', 'inv', 'vis'].forEach(function (id) { $(id).style.fontSize = L.font + 'px'; }); }
+	function fonts() { ['log', 'inv', 'vis'].forEach(function (id) { $(id).style.fontSize = L.font + 'px'; $(id).style.fontFamily = L.face ? '"' + L.face + '", monospace' : ''; }); }
+	/* a face from the index page's fonts/ (web/build.sh lists them in fonts.json) */
+	function loadFace(n, now) {
+		var redraw = function () { fonts(); measure(); draw(); };
+		if (!n) { if (now) redraw(); return; }
+		var ff = new FontFace(n, 'url(../fonts/' + n + '.woff)');
+		ff.load().then(function () { document.fonts.add(ff); redraw(); }).catch(function () { status('Could not load the font ' + n + '.', true); });
+	}
+	/* map font chooser: on the Map title bar (shown on hover), text mode only */
+	var mapSel = document.createElement('select');
+	mapSel.title = 'Map font (text mode)';
+	mapSel.innerHTML = '<option value="">Default font</option>';
+	mapSel.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+	function renderMapSel() {
+		var bs = document.querySelector('#t-map .wm-btns');
+		if (bs && mapSel.parentNode !== bs) bs.insertBefore(mapSel, bs.firstChild);
+		mapSel.hidden = tilesOn;
+		mapSel.value = L.mapFace || '';
+	}
 	/* the shared tiling window manager (rvip-wm.js, RVIP.md 5b) */
 	function makeWM() {
-		try { var s = JSON.parse(Module.FS.readFile(LAYOUT, { encoding: 'utf8' })); if (s) L = { px: s.px | 0, font: s.font || 13, wm: s.wm }; } catch (e) { }
+		try { var s = JSON.parse(Module.FS.readFile(LAYOUT, { encoding: 'utf8' })); if (s) L = { px: s.px | 0, font: s.font || 13, wm: s.wm, face: typeof s.face === 'string' ? s.face : '', mapFace: typeof s.mapFace === 'string' ? s.mapFace : '' }; } catch (e) { }
+		$('sel-font').value = L.face || '';
+		loadFace(L.face); loadFace(L.mapFace);
 		if (L.px >= 8 && L.px <= 40) { px = L.px; auto = false; measure(); }
 		fonts();
 		wm = RvipWM({
@@ -116,7 +138,7 @@
 			single: 'map',
 			state: L.wm,
 			save: function (st) { L.wm = st; saveLayout(); },
-			layout: function (r) { rects = r; if (auto) { px = fit(); measure(); } dirty = true; draw(); },
+			layout: function (r) { rects = r; renderMapSel(); if (auto) { px = fit(); measure(); } dirty = true; draw(); },
 			font: function (id, d) { if (id === 'map') return zoom(d); L.font = Math.max(8, Math.min(28, L.font + d)); fonts(); saveLayout(); },
 			onReset: function () { auto = true; L.px = 0; L.font = 13; L.wm = wm.state(); fonts(); px = fit(); measure(); draw(); saveLayout(); }
 		});
@@ -135,12 +157,13 @@
 	}
 	function drawFull(one) {
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		ctx.font = px + 'px ' + face(one);
 		ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cols * cw, rows * ch);
 		for (var y = 0; y < rows; y++)
 			for (var x = 0; x < cols; x++)
 				if (!(tilesOn && x < MAPW && scr[y * cols + x] & A_TILE)) cell(ctx, scr[y * cols + x], x * cw, y * ch, cw);
 		if (!(tilesOn && drawTiles())) { if (cur.y !== hero.y || cur.x !== hero.x) { ctx.fillStyle = PAL[7]; ctx.fillRect(cur.x * cw, cur.y * ch + ch - 2, cw, 2); } }
-		if (one) { size(cv, cols * cw, rows * ch); return scroll(cv, (hero.x + 0.5) * cw, (hero.y + 0.5) * ch); }
+		if (one) { size(cv, cols * cw, rows * ch, true); return scroll(cv, (hero.x + 0.5) * cw, (hero.y + 0.5) * ch); }
 		/* pop-up over the panes: the whole screen, scaled down to fit */
 		var b = $('full'), s = Math.min(1, b.clientWidth / (cols * cw), b.clientHeight / (rows * ch));
 		cv.style.width = cols * cw * s + 'px'; cv.style.height = rows * ch * s + 'px';
@@ -169,6 +192,7 @@
 		tilesOn = !tilesOn;
 		try { localStorage.setItem('omega-tiles', tilesOn ? '1' : '0'); } catch (e) { }
 		$('btn-tiles').classList.toggle('on', tilesOn);
+		renderMapSel();
 		renderLists(true);
 		dirty = true; draw();
 	}
@@ -380,6 +404,15 @@
 		$('btn-tiles').classList.toggle('on', tilesOn);
 		$('help-close').onclick = toggleHelp;
 		RvipWM.dropdown($('btn-file'), $('menu-file'));
+		fetch('fonts.json').then(function (r) { return r.json(); }).then(function (list) {
+			[[$('sel-font'), 'face'], [mapSel, 'mapFace']].forEach(function (a) {
+				list.forEach(function (n) { var o = document.createElement('option'); o.value = n; o.textContent = n.replace(/^Web(Plus|437)_/, '').replace(/_/g, ' '); a[0].appendChild(o); });
+				a[0].value = L[a[1]] || '';
+			});
+		}).catch(function () { });
+		[[$('sel-font'), 'face'], [mapSel, 'mapFace']].forEach(function (a) {
+			a[0].onchange = function () { L[a[1]] = this.value; saveLayout(); loadFace(this.value, true); this.blur(); };
+		});
 		$('btn-restart').onclick = function () { location.reload(); };
 		document.querySelectorAll('button').forEach(function (b) {
 			b.addEventListener('mousedown', function (e) { e.preventDefault(); });
