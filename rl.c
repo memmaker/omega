@@ -132,9 +132,8 @@ int rl_auto()
   if (monster_in_view()) { stop("You see a monster."); return 0; }
   if (mode != 'X' && Level->site[Player.x][Player.y].locchar ==
       (mode == '<' ? STAIRS_UP : STAIRS_DOWN)) {
-    d = mode;
-    mode = 0;
-    return d;
+    mode = 0;                   /* arrived: the player presses < / > again */
+    return 0;
   }
   if ((d = first_step()) < 0) {
     stop(mode == 'X' ? "Nothing left to explore." : "No known way there.");
@@ -178,7 +177,8 @@ static int cmd_menu()
     /* "key  : description   : time" */
     if (!(a = strchr(line, ':')) || !(b = strrchr(line, ':')) || a == b) continue;
     for (i = 0; line[i] && line[i] != ' ' && line[i] != ':'; i++) ;
-    if (i < 1 || i > 2 || !strncmp(line, "key", 3)) continue;
+    /* one key or ^x; not "vi keys" (movement stays off the menu) */
+    if (!(i == 1 || (i == 2 && line[0] == '^'))) continue;
     keys[n] = i == 2 && line[0] == '^' ? line[1] & 0x1f : line[0];
     for (*b = 0; b > a && b[-1] == ' '; ) *--b = 0;
     for (a++; *a == ' '; a++) ;
