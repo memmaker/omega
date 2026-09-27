@@ -379,6 +379,7 @@
 		$('btn-tiles').onclick = toggleTiles;
 		$('btn-tiles').classList.toggle('on', tilesOn);
 		$('help-close').onclick = toggleHelp;
+		RvipWM.dropdown($('btn-file'), $('menu-file'));
 		$('btn-restart').onclick = function () { location.reload(); };
 		document.querySelectorAll('button').forEach(function (b) {
 			b.addEventListener('mousedown', function (e) { e.preventDefault(); });
