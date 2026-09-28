@@ -15,7 +15,6 @@
 	/* map tiles: Kinder's sheet; C picks the tile (port/tiles.c, bits 18+), square cells of row height,
 	 * scrolled sideways to keep the player (cursor) in view, like WinOmega */
 	var tilesOn = true, sheet = new Image(), tox = 0;
-	try { tilesOn = localStorage.getItem('omega-tiles') !== '0'; } catch (e) { }
 	sheet.onload = function () { dirty = true; draw(); if (tilesOn) renderLists(true); };
 	sheet.src = 'tiles.png';
 	/* arrows and keypad = Omega's number keys (moving, and 8/2 in lists) */
@@ -213,7 +212,7 @@
 	function renderTilesBtn() { $('btn-tiles').textContent = 'Tiles: ' + (tilesOn ? 'WinOmega' : 'None'); }
 	function toggleTiles() {
 		tilesOn = !tilesOn;
-		try { localStorage.setItem('omega-tiles', tilesOn ? '1' : '0'); } catch (e) { }
+		try { Module.FS.writeFile(DIR + '/web-tiles', tilesOn ? 'WinOmega' : 'None'); app.sync(); } catch (e) { }   /* IndexedDB */
 		renderTilesBtn();
 		renderMapSel();
 		renderLists(true);
@@ -313,6 +312,13 @@
 	});
 
 	/* ---------- startup ---------- */
+	/* the player's name: asked once, kept in this game's IndexedDB folder (never localStorage) */
+	function askName(max, bad) {
+		var FS = Module.FS, f = DIR + '/web-name', n = '';
+		try { n = FS.readFile(f, { encoding: 'utf8' }); } catch (e) { }
+		if (!n) { n = (prompt('What is your name, adventurer?', '') || '').replace(bad, '').trim().slice(0, max); if (n) { FS.writeFile(f, n); app.sync(); } }
+		return n;
+	}
 	window.Module = {
 		om: om,
 		arguments: [],
@@ -321,15 +327,14 @@
 			Module.ENV.OMEGALIB = '/omegalib/';
 			Module.ENV.HOME = DIR;
 			Module.ENV.OMEGA_LINES = '40';
-			var who = '';                        /* Player.name = getlogin() (LOGNAME) unless rolled: ask once */
-			try { who = localStorage.getItem('omega-name') || ''; } catch (err) { /* no storage */ }
-			if (!who) { who = (prompt('What is your name, adventurer?', '') || '').replace(/[,\n]/g, '').trim().slice(0, 30); try { if (who) localStorage.setItem('omega-name', who); } catch (err) { /* no storage */ } }
-			if (who) Module.ENV.LOGNAME = who;
 			Module.addRunDependency('idbfs');
 			/* until 2026-09 omega kept its save in the '/save' database it shared with roguepc */
 			RvipApp.mount(function (err) {
 				if (err) status('Could not read saved games from IndexedDB (' + err + '). Saving may not work in this browser mode.', true);
 				if (hasSave()) Module.arguments.push('omega.sav');
+				var who = askName(30, /[,\n]/g);   /* Player.name = getlogin() (LOGNAME) unless rolled */
+				if (who) Module.ENV.LOGNAME = who;
+				try { tilesOn = Module.FS.readFile(DIR + '/web-tiles', { encoding: 'utf8' }) !== 'None'; renderTilesBtn(); } catch (e) { }
 				Module.removeRunDependency('idbfs');
 			}, { dir: '/save', files: ['omega.sav'] });
 			FS.chdir(DIR);
