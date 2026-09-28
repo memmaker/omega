@@ -24,7 +24,7 @@
 
 	var events = [], lastSave = 0, app;
 	var cols = 80, rows = 24, scr = null, cur = { y: 0, x: 0 }, hero = { y: 0, x: 0 };
-	var auto = true, single = null, cv, ctx, wm = null, rects = {}, LAYOUT = DIR + '/web-layout.json', L = { px: 0, wm: null }, px = 18, cw = 11, ch = 22, dirty = true;
+	var cv, ctx, wm = null, rects = {}, LAYOUT = DIR + '/web-layout.json', L = { wm: null }, px = 18, cw = 11, ch = 22, dirty = true;
 	var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
 
 	/* message history: lines the game sends (be_msg), append 1 = run-on text,
@@ -132,13 +132,12 @@
 	}
 	/* the shared tiling window manager (rvip-wm.js, RVIP.md 5b) */
 	function makeWM() {
-		var s = null;
-		try { s = JSON.parse(Module.FS.readFile(LAYOUT, { encoding: 'utf8' })); if (s) { L = { px: s.px | 0, wm: s.wm, face: typeof s.face === 'string' ? s.face : '', mapFace: typeof s.mapFace === 'string' ? s.mapFace : '' };
+		try { var s = JSON.parse(Module.FS.readFile(LAYOUT, { encoding: 'utf8' })); if (s) { L = { wm: s.wm, face: typeof s.face === 'string' ? s.face : '', mapFace: typeof s.mapFace === 'string' ? s.mapFace : '' };
 			var old = s.fs || (s.font && { msg: s.font, inv: s.font, vis: s.font });   /* old layout: sizes move to the WM */
-			if (old && L.wm && !L.wm.fs) L.wm.fs = old; } } catch (e) { }
+			if (old && L.wm && !L.wm.fs) L.wm.fs = old;
+			if (s.px >= 8 && L.wm && L.wm.fs && !L.wm.fs.map) L.wm.fs.map = s.px; } } catch (e) { }   /* old map zoom: the WM's (multi-window) */
 		$('sel-font').value = L.face || '';
 		loadFace(L.face); loadFace(L.mapFace);
-		L.px1 = s && s.px1 | 0 || 0;
 		fonts();
 		wm = RvipWM({
 			area: $('game'), menu: $('btn-layout'),
@@ -149,17 +148,12 @@
 			single: 'map',
 			state: L.wm,
 			save: function (st) { L.wm = st; saveLayout(); },
-			layout: function (r) {
-				rects = r; renderMapSel();
-				/* one zoom per mode (L.px multi, L.px1 single): the map pane's size
-				   would clip the whole screen in one window; unset = fit the window */
-				var one = !r.side && !r.stat, z = one ? L.px1 : L.px;
-				if (one !== single) { single = one; auto = !(z >= 8 && z <= 40); if (!auto) { px = z; measure(); } }
-				if (auto) { px = fit(); measure(); }
-				dirty = true; draw();
-			},
-			zoom: { map: function (s, d) { zoom(d); }, side: redraw, stat: redraw },   /* map: its zoom; Side panel, Status: canvases at their own size */
-			onReset: function () { auto = true; L.px = L.px1 = 0; L.wm = wm.state(); fonts(); px = fit(); measure(); draw(); saveLayout(); }
+			/* the map zoom is the WM's, one per mode (RVIP.md W4); none set: fit the window */
+			layout: function (r) { rects = r; renderMapSel(); px = (wm.zoomed && wm.zoomed('map')) || fit();   /* wm.zoomed: rvip-wm.js from 2026-09-28 */ measure(); draw(); },
+			zoom: { map: function (s) { px = s; measure(); draw(); }, side: redraw, stat: redraw },   /* Side panel, Status: canvases at their own size */
+			size: { map: function () { return px; } },   /* A+ / A− step from the drawn size */
+			fontMax: { map: 40 },
+			onReset: function () { L.wm = wm.state(); fonts(); saveLayout(); }
 		});
 		wm.apply();
 	}
@@ -224,13 +218,6 @@
 		dirty = true; draw();
 	}
 	function redraw() { dirty = true; draw(); }
-	function zoom(d) {
-		auto = false;
-		px = Math.max(8, Math.min(40, px + d));
-		measure(); draw();
-		if (single) L.px1 = px; else L.px = px;
-		saveLayout();
-	}
 
 	var om = {
 		init: function (c, r) {
