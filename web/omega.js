@@ -24,7 +24,7 @@
 
 	var events = [], lastSave = 0, app;
 	var cols = 80, rows = 24, scr = null, cur = { y: 0, x: 0 }, hero = { y: 0, x: 0 };
-	var auto = true, cv, ctx, wm = null, rects = {}, LAYOUT = DIR + '/web-layout.json', L = { px: 0, wm: null }, px = 18, cw = 11, ch = 22, dirty = true;
+	var auto = true, single = null, cv, ctx, wm = null, rects = {}, LAYOUT = DIR + '/web-layout.json', L = { px: 0, wm: null }, px = 18, cw = 11, ch = 22, dirty = true;
 	var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
 
 	/* message history: lines the game sends (be_msg), append 1 = run-on text,
@@ -132,12 +132,13 @@
 	}
 	/* the shared tiling window manager (rvip-wm.js, RVIP.md 5b) */
 	function makeWM() {
-		try { var s = JSON.parse(Module.FS.readFile(LAYOUT, { encoding: 'utf8' })); if (s) { L = { px: s.px | 0, wm: s.wm, face: typeof s.face === 'string' ? s.face : '', mapFace: typeof s.mapFace === 'string' ? s.mapFace : '' };
+		var s = null;
+		try { s = JSON.parse(Module.FS.readFile(LAYOUT, { encoding: 'utf8' })); if (s) { L = { px: s.px | 0, wm: s.wm, face: typeof s.face === 'string' ? s.face : '', mapFace: typeof s.mapFace === 'string' ? s.mapFace : '' };
 			var old = s.fs || (s.font && { msg: s.font, inv: s.font, vis: s.font });   /* old layout: sizes move to the WM */
 			if (old && L.wm && !L.wm.fs) L.wm.fs = old; } } catch (e) { }
 		$('sel-font').value = L.face || '';
 		loadFace(L.face); loadFace(L.mapFace);
-		if (L.px >= 8 && L.px <= 40) { px = L.px; auto = false; measure(); }
+		L.px1 = s && s.px1 | 0 || 0;
 		fonts();
 		wm = RvipWM({
 			area: $('game'), menu: $('btn-layout'),
@@ -148,9 +149,17 @@
 			single: 'map',
 			state: L.wm,
 			save: function (st) { L.wm = st; saveLayout(); },
-			layout: function (r) { rects = r; renderMapSel(); if (auto) { px = fit(); measure(); } dirty = true; draw(); },
+			layout: function (r) {
+				rects = r; renderMapSel();
+				/* one zoom per mode (L.px multi, L.px1 single): the map pane's size
+				   would clip the whole screen in one window; unset = fit the window */
+				var one = !r.side && !r.stat, z = one ? L.px1 : L.px;
+				if (one !== single) { single = one; auto = !(z >= 8 && z <= 40); if (!auto) { px = z; measure(); } }
+				if (auto) { px = fit(); measure(); }
+				dirty = true; draw();
+			},
 			zoom: { map: function (s, d) { zoom(d); }, side: redraw, stat: redraw },   /* map: its zoom; Side panel, Status: canvases at their own size */
-			onReset: function () { auto = true; L.px = 0; L.wm = wm.state(); fonts(); px = fit(); measure(); draw(); saveLayout(); }
+			onReset: function () { auto = true; L.px = L.px1 = 0; L.wm = wm.state(); fonts(); px = fit(); measure(); draw(); saveLayout(); }
 		});
 		wm.apply();
 	}
@@ -169,11 +178,20 @@
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		ctx.font = px + 'px ' + face(one);
 		ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cols * cw, rows * ch);
+		/* map tiles first, then every text cell (side panel, messages, menus
+		   and lists over the map) at its text position, on black */
+		var onMap = tilesOn && drawTiles();
 		for (var y = 0; y < rows; y++)
-			for (var x = 0; x < cols; x++)
-				if (!(tilesOn && x < MAPW && scr[y * cols + x] & A_TILE)) cell(ctx, scr[y * cols + x], x * cw, y * ch, cw);
-		if (!(tilesOn && drawTiles())) { if (cur.y !== hero.y || cur.x !== hero.x) { ctx.fillStyle = PAL[7]; ctx.fillRect(cur.x * cw, cur.y * ch + ch - 2, cw, 2); } }
-		if (one) { size(cv, cols * cw, rows * ch, true); return scroll(cv, (hero.x + 0.5) * cw, (hero.y + 0.5) * ch); }
+			for (var x = 0; x < cols; x++) {
+				var v = scr[y * cols + x];
+				if (tilesOn && x < MAPW && v & A_TILE) continue;
+				if (tilesOn) { ctx.fillStyle = '#000'; ctx.fillRect(x * cw, y * ch, cw, ch); }
+				cell(ctx, v, x * cw, y * ch, cw);
+			}
+		if (!onMap && (cur.y !== hero.y || cur.x !== hero.x)) { ctx.fillStyle = PAL[7]; ctx.fillRect(cur.x * cw, cur.y * ch + ch - 2, cw, 2); }
+		/* the camera on the hero, where it is drawn: a tile (ch wide, scrolled by tox) or a text cell */
+		var ht = tilesOn && hero.x < MAPW && scr[hero.y * cols + hero.x] & A_TILE;
+		if (one) { size(cv, cols * cw, rows * ch, true); return scroll(cv, ht ? (hero.x - tox + 0.5) * ch : (hero.x + 0.5) * cw, (hero.y + 0.5) * ch); }
 		/* pop-up over the panes: the whole screen, scaled down to fit */
 		var b = $('full'), s = Math.min(1, b.clientWidth / (cols * cw), b.clientHeight / (rows * ch));
 		cv.style.width = cols * cw * s + 'px'; cv.style.height = rows * ch * s + 'px';
@@ -181,17 +199,16 @@
 	}
 	/* true when the cursor is on the map (drawn here as a box) */
 	function drawTiles() {
-		var T = ch, nx = Math.min(MAPW, Math.floor(MAPW * cw / T)), onMap = cur.x < MAPW && scr[cur.y * cols] & A_TILE;
+		var T = ch, nx = Math.min(MAPW, Math.floor(MAPW * cw / T)), onMap = cur.x < MAPW && scr[cur.y * cols + cur.x] & A_TILE;
 		tox = Math.max(0, Math.min(MAPW - nx, hero.x - (nx >> 1)));
 		ctx.imageSmoothingEnabled = false;
-		for (var y = 0; y < rows; y++) {
-			if (!(scr[y * cols] & A_TILE)) continue;
+		for (var y = 0; y < rows; y++)
 			for (var i = 0; i < nx; i++) {
 				var v = scr[y * cols + tox + i], t = v >>> 18;
+				if (!(v & A_TILE)) continue;   /* text over the map: drawFull() */
 				if (t-- && sheet.complete && sheet.naturalWidth) ctx.drawImage(sheet, t % 128 * 32, (t >> 7) * 32, 32, 32, i * T, y * ch, T, T);
 				else cell(ctx, v, i * T, y * ch, T);
 			}
-		}
 		if (!onMap) return false;
 		if (cur.y === hero.y && cur.x === hero.x) return true;   /* no cursor on the hero */
 		ctx.strokeStyle = PAL[14]; ctx.lineWidth = 1;
@@ -211,7 +228,8 @@
 		auto = false;
 		px = Math.max(8, Math.min(40, px + d));
 		measure(); draw();
-		L.px = px; saveLayout();
+		if (single) L.px1 = px; else L.px = px;
+		saveLayout();
 	}
 
 	var om = {
