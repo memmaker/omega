@@ -209,10 +209,12 @@
 		ctx.strokeRect((cur.x - tox) * T + 0.5, cur.y * ch + 0.5, T - 1, T - 1);
 		return true;
 	}
+	/* the set's name (David Kinder's WinOmega sheet), None = text */
+	function renderTilesBtn() { $('btn-tiles').textContent = 'Tiles: ' + (tilesOn ? 'WinOmega' : 'None'); }
 	function toggleTiles() {
 		tilesOn = !tilesOn;
 		try { localStorage.setItem('omega-tiles', tilesOn ? '1' : '0'); } catch (e) { }
-		$('btn-tiles').classList.toggle('on', tilesOn);
+		renderTilesBtn();
 		renderMapSel();
 		renderLists(true);
 		dirty = true; draw();
@@ -346,7 +348,7 @@
 		cv = document.createElement('canvas');
 		ctx = cv.getContext('2d');
 		$('btn-tiles').onclick = toggleTiles;
-		$('btn-tiles').classList.toggle('on', tilesOn);
+		renderTilesBtn();
 		RvipWM.dropdown($('btn-file'), $('menu-file'));
 		fetch('fonts.json').then(function (r) { return r.json(); }).then(function (list) {
 			[[$('sel-font'), 'face'], [mapSel, 'mapFace']].forEach(function (a) {
