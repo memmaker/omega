@@ -22,7 +22,7 @@
 	var KEYS = { ArrowUp: 56, ArrowDown: 50, ArrowLeft: 52, ArrowRight: 54, Home: 55, PageUp: 57,
 		End: 49, PageDown: 51, Clear: 53, Enter: 10, Escape: 27, Backspace: 8, Delete: 8, Tab: 9 };
 
-	var events = [], running = false, lastSave = 0;
+	var events = [], lastSave = 0, app;
 	var cols = 80, rows = 24, scr = null, cur = { y: 0, x: 0 }, hero = { y: 0, x: 0 };
 	var auto = true, cv, ctx, wm = null, rects = {}, LAYOUT = '/save/web-layout.json', L = { px: 0, wm: null }, px = 18, cw = 11, ch = 22, dirty = true;
 	var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
@@ -37,10 +37,7 @@
 		if (end) l.scrollTop = l.scrollHeight;
 	}
 	function $(id) { return document.getElementById(id); }
-	function status(msg, isError) {
-		var s = $('status');
-		s.textContent = msg; s.hidden = !msg; s.classList.toggle('error', !!isError);
-	}
+	function status(msg, isError) { app.status(msg, isError); }
 
 	/* ---------- drawing: the whole screen (cv) and one canvas per pane, all from the game's cells ---------- */
 	var MAP = 1, SIDE = 2, STAT = 3, MSG = 4, PANE_BOX = { 1: 'map', 2: 'side', 3: 'stat' }, P = {}, popup = true;
@@ -111,7 +108,7 @@
 		}
 		scroll(c, (hero.x - q.x + 0.5) * w, (hero.y - q.y + 0.5) * ch);
 	}
-	function saveLayout() { try { Module.FS.writeFile(LAYOUT, JSON.stringify(L)); syncFiles(); } catch (e) { } }
+	function saveLayout() { try { Module.FS.writeFile(LAYOUT, JSON.stringify(L)); app.sync(); } catch (e) { } }
 	function fonts() {
 		['log', 'inv', 'vis'].forEach(function (id) { $(id).style.fontFamily = L.face ? '"' + L.face + '", monospace' : ''; });
 	}
@@ -240,12 +237,12 @@
 			if (now - lastSave < 2000 && !document.hidden) return 0;
 			if (!wantSaveFlag) return 0;
 			wantSaveFlag = false; lastSave = now;
-			setTimeout(syncFiles, 0);
+			setTimeout(app.sync, 0);
 			return 1;
 		},
 		end: function (saved) {
-			running = false;
-			syncFiles(function () {
+			app.running = false;
+			app.sync(function () {
 				$('overlay-msg').textContent = saved ? 'Your game has been saved. Play again to continue it.' : 'The game is over.';
 				$('overlay').hidden = false;
 			});
@@ -279,11 +276,7 @@
 
 	/* ---------- input ---------- */
 	function onKey(e) {
-		if (!$('help').hidden) {
-			if (e.key === 'Escape') { $('help').hidden = true; e.preventDefault(); }
-			return;
-		}
-		if (!running || e.isComposing || e.metaKey) return;
+		if (!app.running || e.isComposing || e.metaKey) return;
 		var k = e.key, code = e.code || '', m = /^Numpad(\d)$/.exec(code), c;
 		if (m) c = 48 + +m[1];
 		else if (code === 'NumpadEnter') c = 10;
@@ -303,60 +296,14 @@
 		e.preventDefault();
 	}
 
-	/* ---------- saves: IndexedDB (IDBFS) ---------- */
-	var syncing = false, syncAgain = false, pendingCbs = [];
-	function syncFiles(cb) {
-		if (!Module.FS) { if (cb) cb(); return; }
-		if (typeof cb === 'function') pendingCbs.push(cb);
-		if (syncing) { syncAgain = true; return; }
-		syncing = true;
-		var cbs = pendingCbs; pendingCbs = [];
-		Module.FS.syncfs(false, function (err) {
-			syncing = false;
-			if (err) status('Saving to browser storage (IndexedDB) failed: ' + err + '. Use "Export save" to keep a copy.', true);
-			cbs.forEach(function (f) { f(err); });
-			if (syncAgain) { syncAgain = false; syncFiles(); }
-		});
-	}
+	/* ---------- saves: IndexedDB (IDBFS), help (../rvip-app.js) ---------- */
 	function hasSave() { try { Module.FS.stat(SAVE); return true; } catch (e) { return false; } }
-	function exportSave() {
-		if (!hasSave()) { status('There is no saved game yet.', true); setTimeout(function () { status(''); }, 2000); return; }
-		var a = document.createElement('a');
-		a.href = URL.createObjectURL(new Blob([Module.FS.readFile(SAVE)], { type: 'application/octet-stream' }));
-		a.download = 'omega.sav';
-		document.body.appendChild(a); a.click();
-		setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-	}
-	function importSave(file) {
-		var r = new FileReader();
-		r.onload = function () {
-			if (!confirm('Replace the current game with "' + file.name + '"?')) return;
-			running = false;
-			Module.FS.writeFile(SAVE, new Uint8Array(r.result));
-			syncFiles(function (err) { if (!err) location.reload(); });
-		};
-		r.readAsArrayBuffer(file);
-	}
-	function newGame() {
-		if (!confirm('Delete the saved game in this browser and start a new one?')) return;
-		running = false;
-		if (hasSave()) Module.FS.unlink(SAVE);
-		syncFiles(function (err) { if (!err) location.reload(); });
-	}
-
-	/* ---------- help ---------- */
-	var helpLoaded = false;
-	function toggleHelp() {
-		var h = $('help');
-		h.hidden = !h.hidden;
-		if (!h.hidden && !helpLoaded) {
-			helpLoaded = true;
-			fetch('help.html').then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
-				.then(function (t) { $('help-body').innerHTML = t; })
-				.catch(function (err) { helpLoaded = false; $('help-body').textContent = 'Could not load the guide (' + err + '). Press ? in the game for its own help.'; });
-		}
-		if (!h.hidden) $('help-body').focus();
-	}
+	app = RvipApp({
+		name: 'omega',
+		save: function () { return hasSave() ? SAVE : null; },
+		clear: function () { if (hasSave()) Module.FS.unlink(SAVE); },
+		put: function (file, data) { Module.FS.writeFile(SAVE, data); }
+	});
 
 	/* ---------- startup ---------- */
 	window.Module = {
@@ -381,27 +328,12 @@
 				Module.removeRunDependency('idbfs');
 			});
 		}],
-		onRuntimeInitialized: function () { running = true; status(''); },
+		onRuntimeInitialized: function () { app.running = true; status(''); },
 		print: function (s) { console.log(s); },
 		printErr: function (s) { console.warn(s); },
-		setStatus: function (s) { if (s && !running) status(s.replace(/\(\d+\/\d+\)/, '').trim() || 'Loading…'); },
-		onAbort: function (what) { crashed(what); }
+		setStatus: function (s) { if (s && !app.running) status(s.replace(/\(\d+\/\d+\)/, '').trim() || 'Loading…'); },
+		onAbort: function (what) { app.crashed(what); }
 	};
-	function crashed(err) {
-		if (!running) return;
-		running = false;
-		var msg = (err && (err.message || err.reason && err.reason.message)) || String(err);
-		console.error('[omega] crash:', err);
-		status('The game crashed (' + msg + '). Reload the page to continue from the last autosave.', true);
-	}
-	window.addEventListener('unhandledrejection', function (e) {
-		if (e.reason && e.reason.name === 'ExitStatus') return;   /* exit() is the normal end */
-		crashed(e.reason);
-	});
-	window.addEventListener('error', function (e) {
-		if (e.error && e.error.name === 'ExitStatus') return;
-		if (e.error instanceof WebAssembly.RuntimeError || /omega-core/.test(e.filename || '')) crashed(e.error || e.message);
-	});
 	document.addEventListener('visibilitychange', function () { if (document.hidden) wantSaveFlag = true; });
 
 	window.addEventListener('resize', function () { if (wm) wm.apply(); });
@@ -409,14 +341,8 @@
 	document.addEventListener('DOMContentLoaded', function () {
 		cv = document.createElement('canvas');
 		ctx = cv.getContext('2d');
-		$('btn-export').onclick = exportSave;
-		$('btn-import').onclick = function () { $('import-file').click(); };
-		$('import-file').onchange = function () { if (this.files[0]) importSave(this.files[0]); this.value = ''; };
-		$('btn-new').onclick = newGame;
-		$('btn-help').onclick = toggleHelp;
 		$('btn-tiles').onclick = toggleTiles;
 		$('btn-tiles').classList.toggle('on', tilesOn);
-		$('help-close').onclick = toggleHelp;
 		RvipWM.dropdown($('btn-file'), $('menu-file'));
 		fetch('fonts.json').then(function (r) { return r.json(); }).then(function (list) {
 			[[$('sel-font'), 'face'], [mapSel, 'mapFace']].forEach(function (a) {
