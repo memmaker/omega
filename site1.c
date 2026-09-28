@@ -27,7 +27,7 @@ void l_bank()
       sprintf(Str4, "First Bank of Omega\nCurrent Balance: %ldAu.", Balance);
       response = rl_menu(Str4, strcmp(Password,"")==0 ?
 			 "O:Open an account|X:Exit" : valid ?
-			 "D:Deposit|W:Withdraw|X:Exit" :
+			 "P:Enter password|D:Deposit|W:Withdraw|X:Exit" :
 			 "P:Enter password|X:Exit");
       if (response == ESCAPE) response = 'X';
       if ((response == 'P') && (strcmp(Password,"") != 0)) {
@@ -932,7 +932,7 @@ void l_library()
 
 void l_pawn_shop()
 {
-  int i,j,k,limit,number,done = FALSE,n,idx[PAWNITEMS];
+  int i,j,k,limit,number,done = FALSE,n,idx[PAWNITEMS],keys[PAWNITEMS];
   char action,*items[PAWNITEMS];
   static char text[PAWNITEMS][80];
 
@@ -972,6 +972,7 @@ void l_pawn_shop()
 	  menuprint(text[n]);
 	  menuprint("\n");
 	  items[n] = text[n];
+	  keys[n] = 'a' + i;	/* the shop's letter for the shelf */
 	  idx[n++] = i;
 	}
       showmenu();
@@ -980,7 +981,7 @@ void l_pawn_shop()
       if (action == ESCAPE) 
 	done = TRUE;
       else if (action == 'b') {
-	i = rl_choose("Purchase which item?", items, n, 0);
+	i = rl_choose_keys("Purchase which item?", items, keys, n, 0);
 	if (i < 0 && !n) print3("There is nothing for sale!");
 	else if (i >= 0) {
 	  i = idx[i];

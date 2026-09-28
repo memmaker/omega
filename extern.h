@@ -13,6 +13,7 @@ int rl_command ARGS((int));
 int rl_item_menu ARGS((int));
 void rl_autosave ARGS((void));
 int rl_choose ARGS((char *, char **, int, int));
+int rl_choose_keys ARGS((char *, char **, int *, int, int));
 int rl_menu ARGS((char *, char *));
 int rl_ask ARGS((char *, char *));
 extern int Rl_at_prompt, Rl_saved;

@@ -646,6 +646,7 @@ int slot,display;
   pob item;
   static char text[MAXPACK][80];
   char *items[MAXPACK];
+  int keys[MAXPACK];
   if (Player.possessions[slot] != NULL) 
     slot = O_UP_IN_AIR;
   if (Player.possessions[slot] != NULL) 
@@ -656,10 +657,12 @@ int slot,display;
     for (i = 0; i < Player.packptr; i++) {
       strncpy(text[i], itemid(Player.pack[i]), 79);
       items[i] = text[i];
+      keys[i] = 'A' + i;	/* the pack's letters */
     }
     i = 0;
     do {
-      i = rl_choose("Take which item from your pack?", items, Player.packptr, i);
+      i = rl_choose_keys("Take which item from your pack?", items, keys,
+			 Player.packptr, i);
       if (i < 0) quit = TRUE;
       else {
 	response = 'A' + i;
@@ -1057,15 +1060,17 @@ int get_inventory_slot()
     "armor", "boots", "cloak", "finger", "finger", "finger", "finger" };
   static char text[MAXITEMS][80];
   char *items[MAXITEMS];
-  int i, slot;
-  /* the slots in order (menu letters a..o = slot letters), then up-in-air */
+  int keys[MAXITEMS], i, slot;
+  /* the slots in order, a..o, then up-in-air, * */
   for (i = 0; i < MAXITEMS; i++) {
     slot = (i + 1) % MAXITEMS;
     sprintf(text[i], "%-15s%.60s", names[slot], Player.possessions[slot] ?
 	    itemid(Player.possessions[slot]) : "(vacant)");
     items[i] = text[i];
+    keys[i] = slot ? 'a' + slot - 1 : '*';
   }
-  while ((i = rl_choose("Which inventory slot?", items, MAXITEMS, 0)) < 0) ;
+  while ((i = rl_choose_keys("Which inventory slot?", items, keys,
+			     MAXITEMS, 0)) < 0) ;
   return((i + 1) % MAXITEMS);
 }
     

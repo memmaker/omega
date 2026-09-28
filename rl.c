@@ -280,8 +280,8 @@ int slot;
     if (oc == POTION) item("quaff", 'q', "q");
     if (oc == SCROLL) item("read", 'r', "r");
     if (oc == STICK) item("zap", 'a', "a");
-    if (oc == THING) item("activate", 'A', "Aa");   /* activate()'s menu: a) item */
-    if (oc == ARTIFACT) item("activate", 'A', "Ab"); /* b) artifact */
+    if (oc == THING) item("activate", 'A', "Ai");
+    if (oc == ARTIFACT) item("activate", 'A', "Aa");
     if (oc == WEAPON || oc == MISSILEWEAPON) item("fire/throw", 'f', "f");
     item("call it something", 'C', "C");
   }
@@ -339,34 +339,64 @@ void rl_autosave()
   if (!quiet) resetgamestatus(SUPPRESS_PRINTING);
 }
 
-/* a list of choices in a box, lettered a) b) ... (A) B) ...
-   after z). The player types a letter, or moves with the arrows / 8 2
-   (9 3 a page) and takes it with Enter, space or 5. title may have
-   several lines. Returns the index, -1 on ESCAPE. */
-int rl_choose(title, items, n, sel)
-char *title, **items;
-int n, sel;
+/* a list of choices in a box at the right, under the message lines (the
+   prompt's text) and clear of the menu window on the left (what it lists:
+   pack, wares, a sequence). Each entry shows its key: keys[i], or when keys
+   is NULL the letters a) b) ... (A) B) ... after z). The player presses a
+   key, or moves with the arrows / 8 2 (9 3 a page) and takes the entry with
+   Enter, space or 5. A key that is also a movement key (digits) wins over
+   the movement. title may have several lines. Returns the index, -1 on
+   ESCAPE. */
+static int must;                /* rl_ask(): no ESCAPE, don't offer it */
+
+static char *keyname(k)
+int k;
 {
-  char tl[8][80], *p, *hint;
-  int nt = 0, w, h, top = 0, i, c, len, y0, x0, ty;
+  static char b[2];
+  if (k == '\n') return "Enter";
+  if (k == '\b') return "Bksp";
+  if (k == ESCAPE) return "Esc";
+  if (k == ' ') return "Space";
+  b[0] = k; b[1] = 0;
+  return b;
+}
+
+static int lower(c)
+int c;
+{
+  return c >= 'A' && c <= 'Z' ? c + 'a' - 'A' : c;
+}
+
+int rl_choose_keys(title, items, keys, n, sel)
+char *title, **items;
+int *keys, n, sel;
+{
+  char tl[8][80], *p;
+  int nt = 0, w, h, top = 0, i, c, len, y0, x0, ty, lw = 1, fold = 1;
+  int k[128];
   WINDOW *save, *win;
 
   if (n <= 0) return -1;
+  n = min(n, 128);
+  for (i = 0; i < n; i++) {
+    k[i] = keys ? keys[i] : i < 26 ? 'a' + i : i < 52 ? 'A' + i - 26 : 0;
+    if (k[i]) lw = max(lw, (int)strlen(keyname(k[i])));
+  }
+  /* letters in either case, unless the keys tell the cases apart */
+  for (i = 0; i < n && fold; i++)
+    for (c = i + 1; c < n; c++)
+      if (k[i] != k[c] && lower(k[i]) == lower(k[c])) { fold = 0; break; }
   for (p = title; p && *p && nt < 7; nt++) {
     for (len = 0; p[len] && p[len] != '\n'; len++) ;
     sprintf(tl[nt], "%.*s", len > 79 ? 79 : len, p);
     p += len;
     if (*p) p++;
   }
-  hint = n > 1 ? (n <= 26 ? " a-%c, arrows + Enter, ESC " : " letter, arrows + Enter, ESC ")
-    : " a, Enter, ESC ";
   w = 20;
   for (i = 0; i < nt; i++) w = max(w, (int)strlen(tl[i]));
-  for (i = 0; i < n; i++) w = max(w, (int)strlen(items[i]) + 3);
+  for (i = 0; i < n; i++) w = max(w, (int)strlen(items[i]) + lw + 2);
   w = min(w, COLS - 4);
   ty = nt ? nt + 1 : 0;                         /* title lines + a rule */
-  /* at the right, under the message lines (the prompt's text) and clear of
-     the menu window on the left (what it lists: pack, wares, sequence) */
   h = min(n, LINES - 5 - ty);
   y0 = 3; x0 = COLS - w - 4;
   if (sel < 0 || sel >= n) sel = 0;
@@ -387,30 +417,30 @@ int n, sel;
     }
     for (i = 0; i < nt; i++) mvwprintw(win, i + 1, 2, "%.*s", w, tl[i]);
     for (i = 0; i < h; i++) {
-      int k = top + i;
-      if (k == sel) wstandout(win);
-      if (k < 52) mvwprintw(win, ty + i + 1, 2, "%c) %-*.*s",
-                            k < 26 ? 'a' + k : 'A' + k - 26, w - 3, w - 3, items[k]);
-      else mvwprintw(win, ty + i + 1, 2, "   %-*.*s", w - 3, w - 3, items[k]);
+      int e = top + i;
+      if (e == sel) wstandout(win);
+      if (k[e]) mvwprintw(win, ty + i + 1, 2, "%*s) %-*.*s", lw, keyname(k[e]),
+                          w - lw - 2, w - lw - 2, items[e]);
+      else mvwprintw(win, ty + i + 1, 2, "%*s  %-*.*s", lw, "",
+                     w - lw - 2, w - lw - 2, items[e]);
       wstandend(win);
     }
     if (top) mvwaddstr(win, ty, w - 3, " more ");
     if (top + h < n) mvwaddstr(win, h + ty + 1, w - 3, " more ");
-    sprintf(tl[7], hint, 'a' + n - 1);
+    sprintf(tl[7], must ? " key or arrows + Enter " : " key or arrows + Enter, Esc ");
     if ((int)strlen(tl[7]) <= w - 6) mvwaddstr(win, h + ty + 1, 2, tl[7]);
     wmove(win, sel - top + ty + 1, 2);
     c = wgetch(win);
+    /* an entry's key (Enter always takes the highlighted entry) */
+    for (i = 0; i < n && c != '\n' && c != '\r'; i++)
+      if (k[i] && (c == k[i] || (fold && lower(c) == lower(k[i])))) break;
+    if (i < n && c != '\n' && c != '\r') { sel = i; break; }
     if (c == KEY_DOWN || c == '2') sel = (sel + 1) % n;
     else if (c == KEY_UP || c == '8') sel = (sel + n - 1) % n;
     else if (c == '3') sel = min(n - 1, sel + h);
     else if (c == '9') sel = max(0, sel - h);
     else if (c == '\n' || c == '\r' || c == ' ' || c == '5') break;
-    else if (c == ESCAPE) { sel = -1; break; }
-    else {
-      if (n <= 26 && c >= 'A' && c <= 'Z') c += 'a' - 'A';
-      i = c >= 'a' && c <= 'z' ? c - 'a' : c >= 'A' && c <= 'Z' ? c - 'A' + 26 : -1;
-      if (i >= 0 && i < n) { sel = i; break; }
-    }
+    else if (c == ESCAPE && !must) { sel = -1; break; }
   }
   delwin(win);
   touchwin(save);
@@ -419,22 +449,32 @@ int n, sel;
   return sel;
 }
 
-/* rl_choose() over "k:text|k:text|...": returns the key k of the entry
-   taken (ESCAPE for none), so the code keeps the old prompt's keys while
-   the player sees the whole list and picks by menu letter */
+/* the same, lettered a) b) c) ... */
+int rl_choose(title, items, n, sel)
+char *title, **items;
+int n, sel;
+{
+  return rl_choose_keys(title, items, NULL, n, sel);
+}
+
+/* rl_choose_keys() over "k:text|k:text|...", each entry with the key the
+   old prompt took (shown as "k) text"); returns the key of the entry taken,
+   ESCAPE for none. An entry with the key \n (Enter) starts highlighted, so
+   Enter alone still does what it did. */
 int rl_menu(title, spec)
 char *title, *spec;
 {
   static char buf[1024];
-  char *items[52], keys[52], *p;
-  int n = 0;
+  char *items[52], *p;
+  int keys[52], n = 0, sel = 0;
 
   strncpy(buf, spec, sizeof buf - 1);
   for (p = strtok(buf, "|"); p && n < 52; p = strtok(NULL, "|")) {
-    keys[n] = p[0];
+    if (p[0] == '\n') sel = n;
+    keys[n] = (unsigned char)p[0];
     items[n++] = p[1] == ':' ? p + 2 : p + 1;
   }
-  n = rl_choose(title, items, n, 0);
+  n = rl_choose_keys(title, items, keys, n, sel);
   return n < 0 ? ESCAPE : keys[n];
 }
 
@@ -443,6 +483,8 @@ int rl_ask(title, spec)
 char *title, *spec;
 {
   int c;
-  while ((c = rl_menu(title, spec)) == ESCAPE) ;
+  must = 1;
+  c = rl_menu(title, spec);
+  must = 0;
   return c;
 }
