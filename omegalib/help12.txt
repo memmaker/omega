@@ -68,3 +68,8 @@ Enter: this command menu (arrows/8/2 move, Enter/5 choose)       :     0
 * Actual time taken varies according to SPEED factor.
 + Takes longer in City or Village (different scale for movement)
 ~ Reduced to 0 time by popular demand
+
+Questions with several answers (M, casting, shops, guilds, altars ...)
+open a list of all the choices, lettered a) b) c) and so on. Press a
+letter, or move with the arrows (8/2) and take one with Enter or space.
+ESCAPE backs out.

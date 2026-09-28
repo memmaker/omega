@@ -48,53 +48,26 @@ int blessing,id;
 int itemlist(itemindex,num)
 int itemindex,num;
 {
-  int i,itemno;
+  char *items[TOTALITEMS];
+  int i;
 
-  print2("Show ID list? ");
-  if (ynq2() == 'y') {
-    menuclear();
-    for(i=0;i<num;i++) {
-      menunumprint(i+1);
-      menuprint(":");
-      menuprint(Objects[i+itemindex].truename);
-      menuprint("\n");
-    }
-    showmenu();
-  }
-  mprint("Item ID? ");
-  itemno = (int) parsenum()-1;
-  if ((itemno >= num)||(itemno<0)) itemno = ABORT;
-  return(itemno);
+  for(i=0;i<num;i++)
+    items[i] = Objects[i+itemindex].truename;
+  i = rl_choose("Which one?", items, num, 0);
+  xredraw();
+  return(i < 0 ? ABORT : i);
 }
 
 int monsterlist()
 {
-  int i,itemno;
-  print2("Show ID list? ");
-  if (ynq2() == 'y')
-    do {
-      clearmsg();
-      print1("Summon monster: ");
-      menuclear();
-      for(i=0;i<NUMMONSTERS;i++) {
-	menunumprint(i+1);
-	menuprint(":");
-	menuprint(Monsters[i].monstring);
-	menuprint("\n");
-      }
-      showmenu();
-      itemno = (int) parsenum()-1;
-      if ((itemno < 0) || (itemno > NUMMONSTERS-1)) {
-	print3("How about trying a real monster?");
-	morewait();
-      }
-    } while ((itemno < 0) || (itemno > NUMMONSTERS-1));
-  else
-    do {
-      print1("Summon monster: ");
-      itemno = (int) parsenum()-1;
-    } while ((itemno < 0) || (itemno > NUMMONSTERS-1));
-  return(itemno);
+  char *items[NUMMONSTERS];
+  int i;
+
+  for(i=0;i<NUMMONSTERS;i++)
+    items[i] = Monsters[i].monstring;
+  while ((i = rl_choose("Summon which monster?", items, NUMMONSTERS, 0)) < 0) ;
+  xredraw();
+  return(i);
 }
       
 
@@ -587,25 +560,13 @@ int blessing;
     } while(Country[Player.x][Player.y].base_terrain_type == CHAOS_SEA);
   }
   else {
-    mprint("Below each portal is a caption. Enter which one:");
-    menuclear();
-    menuprint("a: Rampart\n");
-    menuprint("b: Village of Star View\n");
-    menuprint("c: Village of Woodmere\n");
-    menuprint("d: Village of Stormwatch\n");
-    menuprint("e: Village of Thaumaris\n");
-    menuprint("f: Village of Skorch\n");
-    menuprint("g: Village of Whorfen\n");
-    menuprint("h: Temple of the Noose\n");
-    menuprint("i: The Parthenon\n");
-    menuprint("j: Temple of the Black Hand\n");
-    menuprint("k: Temple of the Hidden Moon\n");
-    menuprint("l: WoodHenge\n");
-    menuprint("m: Temple of Destiny\n");
-    menuprint("n: HellWell Volcano\n");
-    menuprint("ANYTHING ELSE: Avoid entering a portal.");
-    showmenu();
-    switch((char) mcigetc()) {
+    mprint("Below each portal is a caption.");
+    switch(rl_menu("Enter which portal?", "a:Rampart|b:Village of Star View|"
+		   "c:Village of Woodmere|d:Village of Stormwatch|"
+		   "e:Village of Thaumaris|f:Village of Skorch|"
+		   "g:Village of Whorfen|h:Temple of the Noose|i:The Parthenon|"
+		   "j:Temple of the Black Hand|k:Temple of the Hidden Moon|"
+		   "l:WoodHenge|m:Temple of Destiny|n:HellWell Volcano")) {
     case 'a': 
       change_environment(E_COUNTRYSIDE); 
       Player.x = 27;

@@ -644,6 +644,8 @@ int slot,display;
   char response;
   int i,quit = FALSE,ok=TRUE,displayed=FALSE;
   pob item;
+  static char text[MAXPACK][80];
+  char *items[MAXPACK];
   if (Player.possessions[slot] != NULL) 
     slot = O_UP_IN_AIR;
   if (Player.possessions[slot] != NULL) 
@@ -651,21 +653,19 @@ int slot,display;
   else if (Player.packptr == 0)
     print3("Pack is empty!");
   else {
+    for (i = 0; i < Player.packptr; i++) {
+      strncpy(text[i], itemid(Player.pack[i]), 79);
+      items[i] = text[i];
+    }
+    i = 0;
     do {
-      ok = TRUE;
-      print1("Enter pack slot letter, or ? to show pack, or ESCAPE to quit.");
-      response = mgetc();
-      if (response == '?') {
-	display_pack();
-	displayed = TRUE;
-	ok = FALSE;
+      i = rl_choose("Take which item from your pack?", items, Player.packptr, i);
+      if (i < 0) quit = TRUE;
+      else {
+	response = 'A' + i;
+	ok = slottable(Player.pack[i],slot);
       }
-      else if (response == ESCAPE) quit = TRUE;
-      else{
-	ok = ((response >= 'A') && (response < 'A'+Player.packptr));
-	if (ok) ok = slottable(Player.pack[response-'A'],slot);
-      }
-    } while (! ok);
+    } while (! ok && ! quit);
     if (! quit) {
       if (response - 'A' > 10) {
 	print1("You begin to rummage through your pack.");
@@ -926,11 +926,16 @@ void top_inventory_control()
   clearmsg3();
   do {
     clearmsg1();
-    print1("Action [d,e,l,p,s,t,x,~,?,ESCAPE]:");
-    print2("'Up in air': ");
-    if (Player.possessions[O_UP_IN_AIR] == NULL) nprint2("NOTHING");
-    else nprint2(itemid(Player.possessions[O_UP_IN_AIR]));
-    response = (char) mcigetc();
+    sprintf(Str1, "Inventory -- 'up in air': %.50s",
+	    Player.possessions[O_UP_IN_AIR] == NULL ? "NOTHING" :
+	    itemid(Player.possessions[O_UP_IN_AIR]));
+    response = rl_menu(Str1, "d:Drop an item|"
+		       "e:Exchange a slot with the up-in-air slot|"
+		       "l:Look at an item|p:Put an item in the pack|"
+		       "s:Show the contents of the pack|"
+		       "t:Take something from the pack into a slot|"
+		       "x:Exchange, and leave if up-in-air ends up empty|"
+		       "~:Full-screen inventory|?:Help");
 
     switch(response) {
     case 'd':
@@ -1047,16 +1052,21 @@ void top_inventory_control()
 
 int get_inventory_slot()
 {
-  int ok;
-  char response;
-  do {
-    clearmsg1();
-    print1("Which inventory slot [a..o,*='up-in-air' slot]?");
-    response = (char) mcigetc(); 
-    ok = ((response == '*') ||
-	  ((response >= 'a') && (response < 'a' + MAXITEMS - 1)));
-  } while (! ok);
-  return((response == '*') ? 0 : ((int) (response + 1 - 'a')));
+  static char *names[MAXITEMS] = { "up in air", "ready hand", "weapon hand",
+    "left shoulder", "right shoulder", "belt", "belt", "belt", "shield",
+    "armor", "boots", "cloak", "finger", "finger", "finger", "finger" };
+  static char text[MAXITEMS][80];
+  char *items[MAXITEMS];
+  int i, slot;
+  /* the slots in order (menu letters a..o = slot letters), then up-in-air */
+  for (i = 0; i < MAXITEMS; i++) {
+    slot = (i + 1) % MAXITEMS;
+    sprintf(text[i], "%-15s%.60s", names[slot], Player.possessions[slot] ?
+	    itemid(Player.possessions[slot]) : "(vacant)");
+    items[i] = text[i];
+  }
+  while ((i = rl_choose("Which inventory slot?", items, MAXITEMS, 0)) < 0) ;
+  return((i + 1) % MAXITEMS);
 }
     
 

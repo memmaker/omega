@@ -32,9 +32,7 @@ char *filestring,*optionstring;
   while (fd == NULL) {
     print3("Warning! Error opening file:");
     nprint3(filestring);
-    print1(" Abort or Retry? [ar] ");
-    do response = (char) mcigetc();
-    while ((response != 'a') && (response != 'r'));
+    response = rl_ask("Error opening file.", "r:Retry|a:Abort (save and quit)");
     if (response == 'r') fd = fopen(filestring,optionstring);
     else {
       print2("Sorry 'bout that.... Saving character, then quitting.");

@@ -44,17 +44,11 @@ void l_thieves_guild()
       Player.dex += 2;
     }
     while (! done) {
-      menuclear();
-      if (Player.rank[THIEVES] == 0)
-	menuprint("a: Join the Thieves' Guild.\n");
-      else
-	menuprint("b: Raise your Guild rank.\n");
-      menuprint("c: Get an item identified.\n");
-      if (Player.rank[THIEVES] > 0)
-	menuprint("d: Fence an item.\n");
-      menuprint("ESCAPE: Leave this Den of Iniquity.");
-      showmenu();
-      action = mgetc();
+      action = rl_menu("The Lair of the Thieves' Guild",
+		       Player.rank[THIEVES] == 0 ?
+		       "a:Join the Thieves' Guild|c:Get an item identified" :
+		       "b:Raise your Guild rank|c:Get an item identified|"
+		       "d:Fence an item");
       if (action == ESCAPE) done = TRUE;
       else if (action == 'a') {
 	done = TRUE;
@@ -162,8 +156,9 @@ void l_thieves_guild()
 	  fee = 5;
 	  print1("The fee is 5Au per item.");
 	}
-	print2("Identify one item, or all possessions? [ip] ");
-	if ((char) mcigetc()=='i') {
+	c = rl_menu("Identify:", "i:One item|p:All possessions");
+	if (c == ESCAPE) ;
+	else if (c == 'i') {
 	  if (Player.cash < fee)
 	    print2("Try again when you have the cash.");
 	  else {
@@ -200,8 +195,9 @@ void l_thieves_guild()
 	if (Player.rank[THIEVES]==0)
 	  print2("Fence? Who said anything about a fence?");
 	else {
-	  print1("Fence one item or go through pack? [ip] ");
-	  if ((char) mcigetc()=='i') {
+	  c = rl_menu("Fence:", "i:One item|p:Go through the pack");
+	  if (c == ESCAPE) ;
+	  else if (c == 'i') {
 	    i = getitem(NULL_ITEM);
 	    if ((i==ABORT) || (Player.possessions[i] == NULL))
 	      print2("Huh, Is this some kind of set-up?");
@@ -286,14 +282,9 @@ void l_college()
 	Archmagebehavior = fixnpc(4);
 	save_hiscore_npc(9);
       }
-      menuclear();
-      menuprint("May we help you?\n\n");
-      menuprint("a: Enroll in the College.\n");
-      menuprint("b: Raise your College rank.\n");
-      menuprint("c: Do spell research.\n");
-      menuprint("ESCAPE: Leave these hallowed halls.\n");
-      showmenu();
-      action = mgetc();
+      action = rl_menu("Collegium Magii: May we help you?",
+		       "a:Enroll in the College|b:Raise your College rank|"
+		       "c:Do spell research");
       if (action == ESCAPE) done = TRUE;
       else if (action == 'a') {
 	if (Player.rank[COLLEGE] > 0)
@@ -473,14 +464,9 @@ void l_sorcerors()
       Player.maxpow += 10;
       Player.pow += 10;
     }
-    menuclear();
-    menuprint("May we help you?\n\n");
-    menuprint("a: Become an Initiate of the Circle.\n");
-    menuprint("b: Raise your rank in the Circle.\n");
-    menuprint("c: Restore mana points\n");
-    menuprint("ESCAPE: Leave these Chambers of Power.\n");
-    showmenu();
-    action = mgetc();
+    action = rl_menu("Circle of Sorcerors: May we help you?",
+		     "a:Become an Initiate of the Circle|"
+		     "b:Raise your rank in the Circle|c:Restore mana points");
     if (action == ESCAPE) done = TRUE;
     else if (action == 'a') {
       if (Player.rank[CIRCLE] > 0)

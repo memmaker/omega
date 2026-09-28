@@ -306,9 +306,8 @@ void l_arena()
 
   print1("Rampart Coliseum");
   if (Player.rank[ARENA] == 0) {
-    print2("Enter the games, or Register as a Gladiator? [e,r,ESCAPE] ");
-    do response = (char) mcigetc();
-    while ((response != 'e') && (response != 'r') && (response != ESCAPE));
+    response = rl_menu("Rampart Coliseum",
+		       "e:Enter the games|r:Register as a Gladiator");
   }
   else {
     print2("Enter the games? [yn] ");

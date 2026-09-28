@@ -102,9 +102,7 @@ void activate()
 
   clearmsg();
 
-  print1("Activate -- item [i] or artifact [a] or quit [ESCAPE]?");
-  do response = (char) mcigetc();
-  while ((response != 'i') && (response != 'a') && (response != ESCAPE));
+  response = rl_menu("Activate what?", "i:An item|a:An artifact");
   if (response != ESCAPE) {
     if (response == 'i')
       index = getitem(THING);
@@ -284,21 +282,10 @@ void talk()
     }
     else {
       m = Level->site[Player.x+dx][Player.y+dy].creature;
-      menuclear();
-      strcpy(Str1,"     Talk to ");
+      strcpy(Str1,"Talk to ");
       strcat(Str1,m->monstring);
       strcat(Str1,":");
-      menuprint(Str1);
-      menuprint("\na: Greet.");
-      menuprint("\nb: Threaten.");
-      menuprint("\nc: Surrender.");
-      menuprint("\nESCAPE: Clam up.");
-      showmenu();
-      do response = menugetc();
-      while ((response != 'a') &&
-	     (response != 'b') &&
-	     (response != 'c') &&
-	     (response != ESCAPE));
+      response = rl_menu(Str1, "a:Greet|b:Threaten|c:Surrender");
       switch(response) {
       case 'a': monster_talk(m); break;
       case 'b': threaten(m); break;

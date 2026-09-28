@@ -280,8 +280,8 @@ int slot;
     if (oc == POTION) item("quaff", 'q', "q");
     if (oc == SCROLL) item("read", 'r', "r");
     if (oc == STICK) item("zap", 'a', "a");
-    if (oc == THING) item("activate", 'A', "Ai");
-    if (oc == ARTIFACT) item("activate", 'A', "Aa");
+    if (oc == THING) item("activate", 'A', "Aa");   /* activate()'s menu: a) item */
+    if (oc == ARTIFACT) item("activate", 'A', "Ab"); /* b) artifact */
     if (oc == WEAPON || oc == MISSILEWEAPON) item("fire/throw", 'f', "f");
     item("call it something", 'C', "C");
   }
@@ -337,4 +337,112 @@ void rl_autosave()
   setgamestatus(SUPPRESS_PRINTING);
   if (save_game(FALSE, tmp)) rename(tmp, "omega.sav");
   if (!quiet) resetgamestatus(SUPPRESS_PRINTING);
+}
+
+/* a list of choices in a box, lettered a) b) ... (A) B) ...
+   after z). The player types a letter, or moves with the arrows / 8 2
+   (9 3 a page) and takes it with Enter, space or 5. title may have
+   several lines. Returns the index, -1 on ESCAPE. */
+int rl_choose(title, items, n, sel)
+char *title, **items;
+int n, sel;
+{
+  char tl[8][80], *p, *hint;
+  int nt = 0, w, h, top = 0, i, c, len, y0, x0, ty;
+  WINDOW *save, *win;
+
+  if (n <= 0) return -1;
+  for (p = title; p && *p && nt < 7; nt++) {
+    for (len = 0; p[len] && p[len] != '\n'; len++) ;
+    sprintf(tl[nt], "%.*s", len > 79 ? 79 : len, p);
+    p += len;
+    if (*p) p++;
+  }
+  hint = n > 1 ? (n <= 26 ? " a-%c, arrows + Enter, ESC " : " letter, arrows + Enter, ESC ")
+    : " a, Enter, ESC ";
+  w = 20;
+  for (i = 0; i < nt; i++) w = max(w, (int)strlen(tl[i]));
+  for (i = 0; i < n; i++) w = max(w, (int)strlen(items[i]) + 3);
+  w = min(w, COLS - 4);
+  ty = nt ? nt + 1 : 0;                         /* title lines + a rule */
+  /* at the right, under the message lines (the prompt's text) and clear of
+     the menu window on the left (what it lists: pack, wares, sequence) */
+  h = min(n, LINES - 5 - ty);
+  y0 = 3; x0 = COLS - w - 4;
+  if (sel < 0 || sel >= n) sel = 0;
+  save = dupwin(curscr);
+  win = newwin(h + ty + 2, w + 4, y0, x0);
+  for (;;) {
+    if (sel < top) top = sel;
+    if (sel >= top + h) top = sel - h + 1;
+    werase(win);
+    for (i = 0; i < w + 4; i++) {
+      mvwaddch(win, 0, i, '-');
+      mvwaddch(win, h + ty + 1, i, '-');
+      if (nt) mvwaddch(win, nt + 1, i, '-');
+    }
+    for (i = 1; i <= h + ty; i++) {
+      mvwaddch(win, i, 0, '|');
+      mvwaddch(win, i, w + 3, '|');
+    }
+    for (i = 0; i < nt; i++) mvwprintw(win, i + 1, 2, "%.*s", w, tl[i]);
+    for (i = 0; i < h; i++) {
+      int k = top + i;
+      if (k == sel) wstandout(win);
+      if (k < 52) mvwprintw(win, ty + i + 1, 2, "%c) %-*.*s",
+                            k < 26 ? 'a' + k : 'A' + k - 26, w - 3, w - 3, items[k]);
+      else mvwprintw(win, ty + i + 1, 2, "   %-*.*s", w - 3, w - 3, items[k]);
+      wstandend(win);
+    }
+    if (top) mvwaddstr(win, ty, w - 3, " more ");
+    if (top + h < n) mvwaddstr(win, h + ty + 1, w - 3, " more ");
+    sprintf(tl[7], hint, 'a' + n - 1);
+    if ((int)strlen(tl[7]) <= w - 6) mvwaddstr(win, h + ty + 1, 2, tl[7]);
+    wmove(win, sel - top + ty + 1, 2);
+    c = wgetch(win);
+    if (c == KEY_DOWN || c == '2') sel = (sel + 1) % n;
+    else if (c == KEY_UP || c == '8') sel = (sel + n - 1) % n;
+    else if (c == '3') sel = min(n - 1, sel + h);
+    else if (c == '9') sel = max(0, sel - h);
+    else if (c == '\n' || c == '\r' || c == ' ' || c == '5') break;
+    else if (c == ESCAPE) { sel = -1; break; }
+    else {
+      if (n <= 26 && c >= 'A' && c <= 'Z') c += 'a' - 'A';
+      i = c >= 'a' && c <= 'z' ? c - 'a' : c >= 'A' && c <= 'Z' ? c - 'A' + 26 : -1;
+      if (i >= 0 && i < n) { sel = i; break; }
+    }
+  }
+  delwin(win);
+  touchwin(save);
+  wrefresh(save);
+  delwin(save);
+  return sel;
+}
+
+/* rl_choose() over "k:text|k:text|...": returns the key k of the entry
+   taken (ESCAPE for none), so the code keeps the old prompt's keys while
+   the player sees the whole list and picks by menu letter */
+int rl_menu(title, spec)
+char *title, *spec;
+{
+  static char buf[1024];
+  char *items[52], keys[52], *p;
+  int n = 0;
+
+  strncpy(buf, spec, sizeof buf - 1);
+  for (p = strtok(buf, "|"); p && n < 52; p = strtok(NULL, "|")) {
+    keys[n] = p[0];
+    items[n++] = p[1] == ':' ? p + 2 : p + 1;
+  }
+  n = rl_choose(title, items, n, 0);
+  return n < 0 ? ESCAPE : keys[n];
+}
+
+/* the same, for a question that must be answered (no ESCAPE) */
+int rl_ask(title, spec)
+char *title, *spec;
+{
+  int c;
+  while ((c = rl_menu(title, spec)) == ESCAPE) ;
+  return c;
 }

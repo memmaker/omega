@@ -432,13 +432,7 @@ void s_mondet()
 /* select a spell to cast */
 int getspell()
 {
-  int spell= ABORT - 1;
-
-  do {
-    mprint("Cast Spell: [type spell abbrev, ?, or ESCAPE]: ");
-    spell = spellparse();
-  } while (spell < ABORT);
-  return(spell);
+  return(spellparse());
 }
 
 
@@ -742,111 +736,26 @@ S_REGENERATE, S_RESTORE, S_RETURN, S_RITUAL, S_SANCTIFY, S_SANCTUARY,
 S_KNOWLEDGE, S_SHADOWFORM, S_SLEEP, S_SUMMON, S_TELEPORT, S_WARP, S_TRUESIGHT,
 S_WISH };
 
-void showknownspells(first, last)
-int first, last;
-{
-  int i,printed=FALSE;
-
-  menuclear();
-  menuprint("\nPossible Spells:\n");
-  for (i = first; i <= last; i++)
-    if (Spells[spell_ids[i]].known) {
-      printed = TRUE;
-      menuprint(spell_names[i]);
-      menuprint(" (");
-      menunumprint(Spells[spell_ids[i]].powerdrain);
-      menuprint(" mana)");
-      menuprint("\n");
-    }
-  if (! printed)
-    menuprint("\nNo spells match that prefix!");
-  showmenu();
-}
-
+/* the known spells with their mana cost, to pick one from a menu */
 int spellparse()
 {
-  int first, last, pos;
-  char byte, prefix[80];
-  int found = 0;
-  int f, l;
+  static char text[NUMSPELLS][40];
+  char *items[NUMSPELLS];
+  int idx[NUMSPELLS], i, n = 0;
 
-  first = 0;
-  while (first < NUMSPELLS && !Spells[spell_ids[first]].known)
-    first++;
-  if (first == NUMSPELLS) {
+  for (i = 0; i < NUMSPELLS; i++)
+    if (Spells[spell_ids[i]].known) {
+      sprintf(text[n], "%s (%d mana)", spell_names[i],
+              Spells[spell_ids[i]].powerdrain);
+      items[n] = text[n];
+      idx[n++] = i;
+    }
+  if (!n) {
     print1("You don't know any spells!");
     return ABORT;
   }
-  last = NUMSPELLS - 1;
-  pos = 0;
-  print2("");
-  do {
-    byte = mgetc();
-    if (byte == BACKSPACE || byte == DELETE) {
-      if (pos > 0) {
-        prefix[--pos] = '\0';
-	byte = prefix[pos - 1];
-	f = first;
-	while (f >= 0 && !strncmp(prefix, spell_names[f], pos)) {
-	  if (Spells[spell_ids[f]].known)
-	    first = f;
-	  f--;
-	}
-	l = last;
-	while (l < NUMSPELLS && !strncmp(prefix, spell_names[l], pos)) {
-	  if (Spells[spell_ids[l]].known)
-	    last = l;
-	  l++;
-	}
-	if (found)
-	  found = 0;
-	print2(prefix);
-      }
-      if (pos == 0) {
-	first = 0;
-	last = NUMSPELLS - 1;
-	found = 0;
-	print2("");
-      }
-    }
-    else if (byte == ESCAPE) {
-      xredraw();
-      return ABORT;
-    }
-    else if (byte == '?')
-      showknownspells(first, last);
-    else if (byte != '\n') {
-      if (byte >= 'A' && byte <= 'Z') 
-	byte += 'a' - 'A';
-      if (found)
-	continue;
-      f = first;
-      l = last;
-      while (f < NUMSPELLS &&
-	  (!Spells[spell_ids[f]].known ||
-	  strlen(spell_names[f]) < pos || spell_names[f][pos] < byte))
-	f++;
-      while (l >= 0 && (!Spells[spell_ids[l]].known ||
-	  strlen(spell_names[l]) < pos || spell_names[l][pos] > byte))
-	l--;
-      if (l < f)
-	continue;
-      prefix[pos++] = byte;
-      prefix[pos] = '\0';
-      nprint2(prefix + pos - 1);
-      first = f;
-      last = l;
-      if (first == last && !found) {	/* unique name */
-	found = 1;
-	nprint2(spell_names[first] + pos);
-      }
-    }
-  } while (byte != '\n');
+  sprintf(Str4, "Cast which spell? (mana: %ld)", Player.mana);
+  i = rl_choose(Str4, items, n, 0);
   xredraw();
-  if (found)
-    return spell_ids[first];
-  else {
-    print3("That is an ambiguous abbreviation!");
-    return ABORT;
-  }
+  return i < 0 ? ABORT : spell_ids[idx[i]];
 }

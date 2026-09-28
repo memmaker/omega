@@ -642,11 +642,11 @@ int blessing;
   else {
     newthing = ((pob) checkmalloc(sizeof(objtype)));
     newthing->id = -1;
-    if (gamestatusp(CHEATED))
-      print1("Acquire which kind of item: !?][}{)/=%%\\& ");
-    else
-      print1("Acquire which kind of item: !?][}{)/=%%\\ ");
-    otype = mgetc();
+    otype = rl_menu("Acquire which kind of item?", gamestatusp(CHEATED) ?
+      "!:! potion|?:? scroll|]:] armor|[:[ shield|}:} cloak|{:{ boots|"
+      "):) weapon|/:/ stick|=:= ring|%:% food|\\:\\ thing|&:& artifact" :
+      "!:! potion|?:? scroll|]:] armor|[:[ shield|}:} cloak|{:{ boots|"
+      "):) weapon|/:/ stick|=:= ring|%:% food|\\:\\ thing");
     switch (otype) {
     case (POTION&0xff): 
       if (blessing > 0)

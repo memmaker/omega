@@ -12,6 +12,9 @@ int rl_auto ARGS((void));
 int rl_command ARGS((int));
 int rl_item_menu ARGS((int));
 void rl_autosave ARGS((void));
+int rl_choose ARGS((char *, char **, int, int));
+int rl_menu ARGS((char *, char *));
+int rl_ask ARGS((char *, char *));
 extern int Rl_at_prompt, Rl_saved;
 
 /* omega.c functions */
@@ -106,7 +109,6 @@ void destroy_order ARGS((void));
 void hourly_check ARGS((void));
 void indoors_random_event ARGS((void));
 void outdoors_random_event ARGS((void));
-void showknownsites ARGS((int, int));
 void tenminute_check ARGS((void));
 void terrain_check ARGS((int));
 
@@ -1013,7 +1015,6 @@ void s_teleport ARGS((void));
 void s_truesight ARGS((void));
 void s_warp ARGS((void));
 void s_wish ARGS((void));
-void showknownspells ARGS((int, int));
 
 /* time.c functions */
 

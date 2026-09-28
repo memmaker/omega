@@ -312,9 +312,7 @@ pob o;
   }
   else {
     ZapHour = hour();
-    print1("Zap with white or black end [wb] ");
-    do response = (char) mcigetc();
-    while ((response != 'w') && (response != 'b'));
+    response = rl_ask("Zap with which end?", "w:White end|b:Black end");
     print2("The staff discharges!");
     if (response == 'w') enchant(o->blessing*2+1);
     else dispel(o->blessing);
@@ -366,21 +364,10 @@ char element;
   print1("The orb begins to glow with increasing intensity!");
   print2("You have the feeling you need to do something more....");
   morewait();
-  print1("Burn it in fire [f] ");
-  print2("Douse it with water [w] ");
-  morewait();
-  print1("Smash it against the earth [e] ");
-  print2("Toss is through the air [a] ");
-  morewait();
-  print1("Mix the above actions, doing them in sequence [m] ");
-  do {
-    print2("Which one [f,w,e,a,m] ");
-    response = (char) mcigetc();
-  } while ((response != 'f') &&
-	   (response != 'w') &&
-	   (response != 'e') &&
-	   (response != 'a') &&
-	   (response != 'm'));
+  response = rl_ask("What do you do with the orb?",
+		    "f:Burn it in fire|w:Douse it with water|"
+		    "e:Smash it against the earth|a:Toss it through the air|"
+		    "m:Mix the above actions, doing them in sequence");
   return(response == element);
 }
 

@@ -8,6 +8,13 @@ Case O (curses, no Rogue/Moria lineage). `git log`: upstream, then the port.
   stairs `<`/`>`, Enter menu, inventory item menu), small hooks in
   command1.c, inv.c (`getitem` cursor, `inventory_control` keys), scr.c,
   save.c, command2.c, char.c, defs.h. Help: `omegalib/help12.txt`.
+- Choice menus: `rl_choose` / `rl_menu` / `rl_ask` (rl.c) show every
+  multiple-choice question as a lettered list (a-z, then A-Z), picked by
+  letter or arrows/8/2 + Enter/space. `rl_menu("title", "k:text|k:text")`
+  returns the entry's old key k (ESCAPE for none), so the call sites keep
+  their switch statements. Used by M, casting, shops, guilds, bank,
+  altars, maneuvers (F), wishes, the top-line inventory, etc. y/n
+  questions and free text (names, amounts) are unchanged.
 - Web tiles: David Kinder's WinOmega 32x32 sheet (github.com/DavidKinder/Omega
   fae6f21, `32x32.bmp` -> `web/tiles.png`). C picks the tile: `port/tiles.c`
   (`wc_tile`, table = Kinder's `gfxMapData` in `port/map.inc`, plus his

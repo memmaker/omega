@@ -225,11 +225,7 @@ void l_lift()
   print3("You feel weightless.... You feel ghostly....");
   morewait();
   clearmsg();
-  print1("Go up, down, or neither [u,d,ESCAPE] ");
-  do response = (char) mcigetc();
-  while ((response != 'u') && 
-	 (response != 'd') &&
-	 (response != ESCAPE));
+  response = rl_menu("Go up, down, or neither?", "u:Up|d:Down");
   if (response != ESCAPE) {
     print1("How many levels?");
     levelnum = (int) parsenum();

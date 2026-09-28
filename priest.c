@@ -42,12 +42,8 @@ void l_altar()
       increase_priest_rank(deity);
     else if (! check_sacrilege(deity)) {
       if (Blessing) print1("You have a sense of immanence.");
-      print2("Request a Blessing, Sacrifice an item, or just Pray [b,s,p] ");
-      do response = (char) mcigetc();
-      while ((response != 'b') && 
-	     (response != 's') && 
-	     (response != 'p') && 
-	     (response != ESCAPE));
+      response = rl_menu("At the altar:", "b:Request a Blessing|"
+			 "s:Sacrifice an item|p:Just pray");
       if (response == 'b') {
 	print1("You beg a heavenly benefice.");
 	print2("You hear a gong resonating throughout eternity....");

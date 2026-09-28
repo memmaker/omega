@@ -24,28 +24,13 @@ void l_bank()
     morewait();
     while (! done) {
       clearmsg();
-      print1("Current Balance: ");
-      mlongprint(Balance);
-      nprint1("Au. ");
-      nprint1(" Enter command (? for help) > ");
-      response = mgetc();
-      if (response == '?') {
-	menuclear();
-	menuprint("?: This List.\n");
-	if (strcmp(Password,"")==0)
-	  menuprint("O: Open an account.\n");
-	else {
-	  menuprint("P: Enter password.\n");
-	  menuprint("D: Deposit.\n");
-	  menuprint("W: Withdraw\n");
-	}
-	menuprint("X: eXit\n");
-	showmenu();
-	morewait();
-	xredraw();
-	continue;
-      }
-      else if ((response == 'P') && (strcmp(Password,"") != 0)) {
+      sprintf(Str4, "First Bank of Omega\nCurrent Balance: %ldAu.", Balance);
+      response = rl_menu(Str4, strcmp(Password,"")==0 ?
+			 "O:Open an account|X:Exit" : valid ?
+			 "D:Deposit|W:Withdraw|X:Exit" :
+			 "P:Enter password|X:Exit");
+      if (response == ESCAPE) response = 'X';
+      if ((response == 'P') && (strcmp(Password,"") != 0)) {
 	clearmsg();
 	print1("Password: ");
 	strcpy(passwd,msgscanstring());
@@ -171,8 +156,7 @@ void l_armorer()
   else {
     while (! done) {
       clearmsg();
-      print1("Julie's: Buy Armor, Weapons, or Leave [a,w,ESCAPE] ");
-      action = mgetc();
+      action = rl_menu("Julie's", "a:Buy Armor|w:Buy Weapons");
       if (action == ESCAPE) 
 	done = TRUE;
       else if (action == 'a') 
@@ -189,25 +173,14 @@ void buyfromstock(base,numitems)
 int base,numitems;  
 {
   int i;
-  char item;
   pob newitem;
+  char *items[26];
 
-  print2("Purchase which item? [ESCAPE to quit] ");
-  menuclear();
-  for(i=0;i<numitems;i++) {
-    strcpy(Str4," :");
-    Str4[0] = i + 'a';
-    strcat(Str4,Objects[base+i].objstr);
-    menuprint(Str4);
-    menuprint("\n");
-  }
-  showmenu();
-  item = ' ';
-  while ((item != ESCAPE) &&
-	 ((item < 'a') || (item >= 'a'+numitems)))
-    item = mgetc();
-  if (item != ESCAPE) {
-    i = item - 'a';
+
+  for(i=0;i<numitems;i++)
+    items[i] = Objects[base+i].objstr;
+  i = rl_choose("Purchase which item?", items, numitems, 0);
+  if (i >= 0) {
     newitem = ((pob) checkmalloc(sizeof(objtype)));
     *newitem = Objects[base+i];
     newitem->known = 2;
@@ -260,9 +233,8 @@ void l_club()
     }
   }
   else {
-    print2("Shop at the club store or listen for rumors [sl] ");
-    do response = (char) mcigetc(); 
-    while ((response != 's') && (response != 'l') && (response != ESCAPE));
+    response = rl_menu("Rampart Explorers' Club",
+		       "s:Shop at the club store|l:Listen for rumors");
     if (response == 'l') {
       if (hinthour == hour()) print2("You don't hear anything useful.");
       else {
@@ -293,15 +265,9 @@ void l_gym()
       nprint1("Au.");
     }
     done = FALSE;
-    menuclear();
-    menuprint("Train for 2000 Au. Choose:\n");
-    menuprint("\na: work out in the weight room");
-    menuprint("\nb: use our gymnastics equipment");
-    menuprint("\nc: take our new anaerobics course");
-    menuprint("\nd: enroll in dance lessons.");
-    menuprint("\nESCAPE: Leave this place.");
-    showmenu();
-    switch(mgetc()) {
+    switch(rl_menu("Train for 2000 Au. Choose:",
+		   "a:work out in the weight room|b:use our gymnastics equipment|"
+		   "c:take our new anaerobics course|d:enroll in dance lessons")) {
     case 'a': 
       gymtrain(&(Player.maxstr),&(Player.str));
       break;
@@ -332,10 +298,8 @@ void l_healer()
   print1("Rampart Healers. Member RMA.");
   morewait();
   clearmsg();
-  print1("a: Heal injuries (50 crowns)");
-  print2("b: Cure disease (250 crowns)");
-  print3("ESCAPE: Leave these antiseptic alcoves.");
-  switch((char) mcigetc()) {
+  switch(rl_menu("Rampart Healers",
+		 "a:Heal injuries (50 crowns)|b:Cure disease (250 crowns)")) {
     case 'a': healforpay(); break;
     case 'b': cureforpay(); break;
     default: print3("OK, but suppose you have Acute Satyriasis?"); break;
@@ -461,10 +425,8 @@ void l_casino()
     while (! done) {
       morewait();
       clearmsg();
-      print1("a: Drop 100Au in the slots.");
-      print2("b: Risk 1000Au  at roulette.");
-      print3("ESCAPE: Leave this green baize hall.");
-      response = (char) mcigetc();
+      response = rl_menu("Rampart Mithril Nugget Casino",
+			 "a:Drop 100Au in the slots|b:Risk 1000Au at roulette");
       if (response == 'a') {
 	if (Player.cash < 100) print3("No credit, jerk.");
 	else {
@@ -532,9 +494,7 @@ void l_casino()
 	else {
 	  Player.cash -= 1000;
 	  dataprint();
-	  print1("Red or Black? [rb]");
-	  do response = (char) mcigetc();
-	  while ((response != 'r') && (response != 'b'));
+	  response = rl_ask("Red or Black?", "r:Red|b:Black");
 	  match = (response == 'r' ? 0 : 1);
 	  for(i=0;i<20;i++) {
 	    if (i==19)
@@ -658,20 +618,10 @@ void l_tavern()
   char response;
   print1("The Centaur and Nymph -- J. Riley, prop.");
   if (nighttime()) {
-    menuclear();
-    menuprint("Riley says: Whataya have?\n\n");
-    menuprint("a: Pint of Riley's ultra-dark 1Au\n");
-    menuprint("b: Shot of Tullimore Dew 10Au\n");
-    menuprint("c: Round for the House. 100Au\n");
-    menuprint("d: Bed and Breakfast. 25Au\n");
-    menuprint("ESCAPE: Leave this comfortable haven.\n");
-    showmenu();
-    do response = (char) mcigetc();
-    while ((response != 'a') &&
-	   (response != 'b') &&
-	   (response != 'c') &&
-	   (response != 'd') &&
-	   (response != ESCAPE));
+    response = rl_menu("Riley says: Whataya have?",
+		       "a:Pint of Riley's ultra-dark 1Au|"
+		       "b:Shot of Tullimore Dew 10Au|c:Round for the House 100Au|"
+		       "d:Bed and Breakfast 25Au");
     switch (response) {
     case 'a':
       if (Player.cash < 1)
@@ -800,10 +750,8 @@ void l_alchemist()
   else while (! done){
     morewait();
     clearmsg();
-    print1("a: Sell monster components.");
-    print2("b: Pay for transformation.");
-    print3("ESCAPE: Leave this place.");
-    response = (char) mcigetc();
+    response = rl_menu("Ambrosias' Potions et cie.",
+		       "a:Sell monster components|b:Pay for transformation");
     if (response == 'a') {
       clearmsg();
       done = TRUE;
@@ -919,16 +867,10 @@ void l_library()
 	else {
 	  Player.cash -= fee;
 	  dataprint();
-	  menuclear();
-	  menuprint("Peruse a scroll:\n");
-	  menuprint("a: Omegan Theology\n");
-	  menuprint("b: Guide to Rampart\n");
-	  menuprint("c: High Magick\n");
-	  menuprint("d: Odd Uncatalogued Document\n");
-	  menuprint("e: Attempt Advanced Research\n");
-	  menuprint("ESCAPE: Leave this font of learning.\n");
-	  showmenu();
-	  response = (char) mcigetc();
+	  response = rl_menu("Peruse a scroll:", "a:Omegan Theology|"
+			     "b:Guide to Rampart|c:High Magick|"
+			     "d:Odd Uncatalogued Document|"
+			     "e:Attempt Advanced Research");
 	  if (response == 'a') {
 	    print1("You unfurl an ancient, yellowing scroll...");
 	    morewait();
@@ -990,8 +932,9 @@ void l_library()
 
 void l_pawn_shop()
 {
-  int i,j,k,limit,number,done = FALSE;
-  char item,action;
+  int i,j,k,limit,number,done = FALSE,n,idx[PAWNITEMS];
+  char action,*items[PAWNITEMS];
+  static char text[PAWNITEMS][80];
 
   if (nighttime())
     print1("Shop Closed: Have a Nice (K)Night");
@@ -1022,29 +965,25 @@ void l_pawn_shop()
                    (true_item_value(Pawnitems[i]) <= 0));
     }
     while (! done) {
-      print1("Knight's Pawn Shop:");
-      print2("Buy item, Sell item, sell Pack contents, Leave [b,s,p,ESCAPE] ");
       menuclear();
-      for(i=0;i<PAWNITEMS;i++) 
+      for(i=n=0;i<PAWNITEMS;i++)
 	if (Pawnitems[i] != NULL) {
-	  strcpy(Str3," :");
-	  Str3[0] = i+'a';
-	  strcat(Str3,itemid(Pawnitems[i]));
-	  menuprint(Str3);
+	  strncpy(text[n],itemid(Pawnitems[i]),79);
+	  menuprint(text[n]);
 	  menuprint("\n");
+	  items[n] = text[n];
+	  idx[n++] = i;
 	}
       showmenu();
-      action = (char) mcigetc();
+      action = (char) rl_menu("Knight's Pawn Shop", "b:Buy an item|"
+			      "s:Sell an item|p:Sell your pack contents");
       if (action == ESCAPE) 
 	done = TRUE;
       else if (action == 'b') {
-	print2("Purchase which item? [ESCAPE to quit] ");
-	item = ' ';
-	while ((item != ESCAPE) &&
-	       ((item < 'a') || (item >= 'a' + PAWNITEMS)))
-	  item = (char) mcigetc();
-	if (item != ESCAPE) {
-	  i = item - 'a';
+	i = rl_choose("Purchase which item?", items, n, 0);
+	if (i < 0 && !n) print3("There is nothing for sale!");
+	else if (i >= 0) {
+	  i = idx[i];
 	  if (Pawnitems[i] == NULL) print3("No such item!");
 	  else if (true_item_value(Pawnitems[i]) <= 0) {
 	    print1("Hmm, how did that junk get on my shelves?");

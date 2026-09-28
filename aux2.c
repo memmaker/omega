@@ -540,11 +540,8 @@ void p_drown()
       case 0: p_death("drowning");
     }
     morewait();
-    menuprint("a: Drop an item.\n");
-    menuprint("b: Bash an item.\n");
-    menuprint("c: Drop your whole pack.\n");
-    showmenu();
-    switch(menugetc()) {
+    switch(rl_menu("You are drowning!",
+		   "a:Drop an item|b:Bash an item|c:Drop your whole pack")) {
       case 'a':
 	drop();
 	if (Level->site[Player.x][Player.y].p_locf == L_WATER && Level->site[Player.x][Player.y].things)

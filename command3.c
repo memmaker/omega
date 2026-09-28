@@ -133,36 +133,21 @@ void help()
   int n;
 
   clearmsg();
-  print1("Please enter the letter indicating what topic you want help on.");
-  menuclear();
-  menuprint("a: Overview\n");
-  menuprint("b: Characters\n");
-  menuprint("c: Inventories\n");
-  menuprint("d: Movement\n");
-  menuprint("e: Combat\n");
-  menuprint("f: Bugs\n");
-  menuprint("g: Magic\n");
-  menuprint("h: The Countryside\n");
-  menuprint("i: The Screen Display\n");
-  menuprint("j: Saving and Restoring\n");
-  menuprint("k: Options Settings\n");
-  menuprint("l: Dungeon/City/Other Command List\n");
-  menuprint("m: Countryside Command List\n");
+  c = rl_menu("Help on which topic?", "a:Overview|b:Characters|"
+	      "c:Inventories|d:Movement|e:Combat|f:Bugs|g:Magic|"
+	      "h:The Countryside|i:The Screen Display|j:Saving and Restoring|"
+	      "k:Options Settings|l:Dungeon/City/Other Command List|"
+	      "m:Countryside Command List"
 #if !defined(MSDOS) && !defined(AMIGA)
-  menuprint("n: Everything\n");
+	      "|n:Everything (copy all to ./omega.doc)"
 #endif
-  menuprint("ESCAPE: Forget the whole thing.");
-  showmenu();
-  do 
-    c = (char) mcigetc();
+	      );
 #if defined(MSDOS) || defined(AMIGA)
-  while ((c < 'a' || c > 'm') && c != ESCAPE);
   if (c != ESCAPE) {
     sprintf(filestr, "%shelp%d.txt", Omegalib, c+1-'a');
     displayfile(filestr);
   }
 #else
-  while ((c < 'a' || c > 'n') && c != ESCAPE);
   if (c == 'n') {
     print1("Trying to copy all help files to ./omega.doc ");
     nprint1("Confirm [yn]");
@@ -186,10 +171,7 @@ void help()
   }
   else if (c != ESCAPE) {
     sprintf(filestr, "%shelp%d.txt", Omegalib, c+1-'a');
-    print1("Display help file, or Copy help file to file in wd. [dc] ");
-    do 
-      c = (char) mcigetc();
-    while ((c != 'd') && (c != 'c')&& (c!=ESCAPE));
+    c = rl_menu("Help file:", "d:Display it|c:Copy it to a file here");
     if (c == 'd')
       displayfile(filestr);
     else if (c == 'c') copyfile(filestr);
@@ -581,9 +563,34 @@ void tacoptions()
 {
   int actionsleft,done,place;
   char defatt, *attstr, *defstr; /* for the default setting */
+  char spec[200];
   int draw_again = 1;
 
   setgamestatus(SKIP_MONSTERS);
+  if (Player.possessions[O_WEAPON_HAND] == NULL) {
+    defatt = 'C';
+    attstr = "Punch";
+  }
+  else if (Player.possessions[O_WEAPON_HAND]->type == THRUSTING) {
+    defatt = 'T';
+    attstr = "Thrust";
+  }
+  else if (Player.possessions[O_WEAPON_HAND]->type == STRIKING) {
+    defatt = 'C';
+    attstr = "Strike";
+  }
+  else {
+    defatt = 'C';
+    attstr = "Cut";
+  }
+  if (Player.possessions[O_WEAPON_HAND] == NULL)
+    defstr = "Dodge";
+  else if (Player.possessions[O_WEAPON_HAND]->type == THRUSTING) 
+    defstr = "Parry";
+  else defstr = "Block";
+  sprintf(spec, "a:%s|b:%s|l:Lunge (2 maneuvers)|r:Riposte (2 maneuvers)|"
+	  "!:Default sequence|\b:Start again|\n:Done, save the sequence|?:Help",
+	  attstr, defstr);
 
   done = FALSE;
   actionsleft = maneuvers();
@@ -591,16 +598,13 @@ void tacoptions()
   do {
     if (draw_again) {
       menuclear();
-      menuprint("Enter a combat maneuvers sequence.\n");
-      menuprint("? for help, ! for default, backspace to start again,\n");
-      menuprint(" RETURN to save sequence\n");
+      menuprint("Combat maneuvers sequence:\n");
       showmenu();
       draw_again = 0;
     }
     clearmsg();
-    mprint("Maneuvers Left:");
-    mnumprint(actionsleft);
-    switch(mgetc()) {
+    sprintf(Str1, "Combat maneuvers: %d left", actionsleft);
+    switch(rl_menu(Str1, spec)) {
     case '?':
       combat_help();
       draw_again = 1;
@@ -696,31 +700,8 @@ void tacoptions()
       draw_again = 1;
       break;
     case '!':
-      if (Player.possessions[O_WEAPON_HAND] == NULL) {
-	defatt = 'C';
-	attstr = "Punch";
-      }
-      else if (Player.possessions[O_WEAPON_HAND]->type == THRUSTING) {
-	defatt = 'T';
-	attstr = "Thrust";
-      }
-      else if (Player.possessions[O_WEAPON_HAND]->type == STRIKING) {
-	defatt = 'C';
-	attstr = "Strike";
-      }
-      else {
-	defatt = 'C';
-	attstr = "Cut";
-      }
-      if (Player.possessions[O_WEAPON_HAND] == NULL)
-	defstr = "Dodge";
-      else if (Player.possessions[O_WEAPON_HAND]->type == THRUSTING) 
-	defstr = "Parry";
-      else defstr = "Block";
       menuclear();
-      menuprint("Enter a combat maneuvers sequence.\n");
-      menuprint("? for help, ! for default, backspace to start again,\n");
-      menuprint(" RETURN to save sequence\n\n");
+      menuprint("Combat maneuvers sequence:\n");
       for(place=0;place<maneuvers();place++)
 	if (place&1) { /* every 2nd time around */
 	    Player.meleestr[place*2] = 'B';
@@ -737,6 +718,7 @@ void tacoptions()
       actionsleft = 0;
       showmenu();
       Player.meleestr[place*2]='\0';
+      place *= 2;       /* the end of the sequence, as below */
       break;
     case RETURN:
     case LINEFEED:
@@ -1044,7 +1026,6 @@ void city_move()
   else if (Level->site[Player.x][Player.y].aux == NOCITYMOVE)
     print3("You can't use the 'M' command from this location.");
   else {
-    print1("Move to which establishment [? for help, ESCAPE to quit]");
     site = parsecitysite();
     if (site != ABORT) {
       mprint("You're on your way...");
@@ -1078,9 +1059,7 @@ void frobgamestatus()
 {
   char response;
   long num;
-  mprint("Set or Reset or Forget it [s,r,ESCAPE]:");
-  do response = (char) mcigetc();
-  while ((response != 'r') && (response != 's') && (response != ESCAPE));
+  response = rl_menu("Game status flag:", "s:Set|r:Reset");
   if (response != ESCAPE) {
     mprint("Enter log2 of flag:");
     num = (int) parsenum();

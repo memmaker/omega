@@ -202,7 +202,7 @@ static int readkey(void)
     }
     if (c == 127) return '\b';
 #endif
-    if (c == '\n') return '\r';
+    if (c == '\r') return '\n';     /* Enter, as be_x11.c and the web give it */
     return c;
 }
 

@@ -365,19 +365,11 @@ void outdoors_random_event()
 
 char getlocation()
 {
-  char c = '\0';
+  char c = rl_ask("Aim at which location?", "H:High|C:Center|L:Low");
 
-  menuprint(" (enter location [HCL]) ");
+  menuprint(c == 'H' ? " High." : c == 'C' ? " Center." : " Low.");
   showmenu();
-  while (c == '\0')
-    switch (c = ((char) mcigetc())) {
-      case 'h':menuprint(" High."); break;
-      case 'c':menuprint(" Center."); break;
-      case 'l':menuprint(" Low."); break;
-      default: c = '\0'; break;
-    }
-  showmenu();
-  return (c - 'a' + 'A');
+  return (c);
 }
 
 
@@ -808,104 +800,20 @@ static int sitenums[] = {	/* the order matches sitenames[] */
  L_GYM, L_HEALER, L_CHARITY, L_CRAP, L_LIBRARY, L_MERC_GUILD, L_ORACLE,
  L_ORDER, L_PAWN_SHOP, L_SORCERORS, L_TAVERN, L_TEMPLE, L_THIEVES_GUILD };
 
-void showknownsites(first, last)
-int first, last;
-{
-  int i,printed=FALSE;
-
-  menuclear();
-  menuprint("\nPossible Sites:\n");
-  for (i = first; i <= last; i++)
-    if (CitySiteList[sitenums[i] - CITYSITEBASE][0]) {
-      printed = TRUE;
-      menuprint(sitenames[i]);
-      menuprint("\n");
-    }
-  if (! printed)
-    menuprint("\nNo known sites match that prefix!");
-  showmenu();
-}
-
+/* the known sites, to pick one from a menu; ABORT on ESCAPE */
 int parsecitysite()
 {
-  int first, last, pos;
-  char byte, prefix[80];
-  int found = 0;
-  int f, l;
+  char *items[NUMCITYSITES];
+  int idx[NUMCITYSITES], i, n = 0;
 
-  first = 0;
-  last = NUMCITYSITES - 1;
-  pos = 0;
-  print2("");
-  do {
-    byte = mgetc();
-    if (byte == BACKSPACE || byte == DELETE) {
-      if (pos > 0) {
-        prefix[--pos] = '\0';
-	byte = prefix[pos - 1];
-	f = first;
-	while (f >= 0 && !strncmp(prefix, sitenames[f], pos)) {
-	  if (CitySiteList[sitenums[f] - CITYSITEBASE][0])
-	    first = f;
-	  f--;
-	}
-	l = last;
-	while (l < NUMCITYSITES && !strncmp(prefix, sitenames[l], pos)) {
-	  if (CitySiteList[sitenums[l] - CITYSITEBASE][0])
-	    last = l;
-	  l++;
-	}
-	if (found)
-	  found = 0;
-	print2(prefix);
-      }
-      if (pos == 0) {
-	first = 0;
-	last = NUMCITYSITES - 1;
-	found = 0;
-	print2("");
-      }
+  for (i = 0; i < NUMCITYSITES; i++)
+    if (CitySiteList[sitenums[i] - CITYSITEBASE][0]) {
+      idx[n] = i;
+      items[n++] = sitenames[i];
     }
-    else if (byte == ESCAPE) {
-      xredraw();
-      return ABORT;
-    }
-    else if (byte == '?')
-      showknownsites(first, last);
-    else if (byte != '\n') {
-      if (byte >= 'A' && byte <= 'Z') 
-	byte += 'a' - 'A';
-      if (found)
-	continue;
-      f = first;
-      l = last;
-      while (f < NUMCITYSITES &&
-	  (!CitySiteList[sitenums[f] - CITYSITEBASE][0] ||
-	  strlen(sitenames[f]) < pos || sitenames[f][pos] < byte))
-	f++;
-      while (l >= 0 && (!CitySiteList[sitenums[l] - CITYSITEBASE][0] ||
-	  strlen(sitenames[l]) < pos || sitenames[l][pos] > byte))
-	l--;
-      if (l < f)
-	continue;
-      prefix[pos++] = byte;
-      prefix[pos] = '\0';
-      nprint2(prefix + pos - 1);
-      first = f;
-      last = l;
-      if (first == last && !found) {	/* unique name */
-	found = 1;
-	nprint2(sitenames[first] + pos);
-      }
-    }
-  } while (byte != '\n');
+  i = rl_choose("Move to which establishment?", items, n, 0);
   xredraw();
-  if (found)
-    return sitenums[first] - CITYSITEBASE;
-  else {
-    print3("That is an ambiguous abbreviation!");
-    return ABORT;
-  }
+  return i < 0 ? ABORT : sitenums[idx[i]] - CITYSITEBASE;
 }
 
 

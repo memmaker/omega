@@ -117,8 +117,8 @@ FILE *omegarc_check()
 void initstats()
 {
   char response;
-  print1("Do you want to run a character [c] or play yourself [p]?");
-  do response = (char) mcigetc(); while ((response!='c')&&(response != 'p'));
+  response = rl_ask("Who will you be?",
+		    "c:Run a character|p:Play yourself (answer some questions)");
   if (response == 'c') omegan_character_stats();
   else {
     user_character_stats();
@@ -209,39 +209,13 @@ int status;
       npcbehavior += NEUTRAL;
       menuprint("\n\n NEUTRAL");
     }
-    menuprint("\n\n1: hand-to-hand combat");
-    menuprint("\n2: missile combat");
-    menuprint("\n3: spellcasting");
-    menuprint("\n4: thieving");
-    menuprint("\n5: escape");
-    menuprint("\n\nEnter NPC response to combat: ");
     showmenu();
-    response = '0';
-    while ((response != '1') && 
-	   (response != '2') &&
-	   (response != '3') &&
-	   (response != '4') &&
-	   (response != '5'))
-      response = menugetc();
-    menuaddch(response);
+    response = rl_ask("NPC response to combat:", "1:hand-to-hand combat|"
+		      "2:missile combat|3:spellcasting|4:thieving|5:escape");
     npcbehavior+=10*(response - '0');
     npcbehavior+=100*competence_check(response-'0');
-    response = '0';
-    menuclear();
-    menuprint("1: threaten");
-    menuprint("\n2: greet");
-    menuprint("\n3: aid");
-    menuprint("\n4: beg");
-    menuprint("\n5: silence");
-    menuprint("\n\nEnter NPC response to conversation: ");
-    showmenu();
-    while ((response != '1') && 
-	   (response != '2') &&
-	   (response != '3') &&
-	   (response != '4') &&
-	   (response != '5'))
-      response = menugetc();
-    menuaddch(response);
+    response = rl_ask("NPC response to conversation:",
+		      "1:threaten|2:greet|3:aid|4:beg|5:silence");
     npcbehavior+=1000*(response - '0');
     xredraw();
   }
@@ -536,10 +510,8 @@ void user_character_stats()
     morewait();
   }
   Player.pow = Player.maxpow = 3 + powpts/2;
-  print1("Are you sexually interested in males or females? [mf] ");
-  do Player.preference = (char) mcigetc();
-  while ((Player.preference != 'm') && (Player.preference != 'f') &&
-	(Player.preference != 'y') && (Player.preference != 'n')); /* :-) */
+  Player.preference = rl_ask("Are you sexually interested in males or females?",
+			     "m:Males|f:Females|y:Both|n:Neither");
 }
 
 
@@ -572,10 +544,9 @@ void omegan_character_stats()
   strcpy(Player.name,msgscanstring());
   if (Player.name[0] >= 'a' && Player.name[0] <= 'z')
     Player.name[0] += 'A'-'a'; /* capitalise 1st letter */
-  print1("Is your character sexually interested in males or females? [mf] ");
-  do Player.preference = (char) mcigetc();
-  while ((Player.preference != 'm') && (Player.preference != 'f') &&
-	(Player.preference != 'y') && (Player.preference != 'n')); /* :-) */
+  Player.preference =
+    rl_ask("Is your character sexually interested in males or females?",
+	   "m:Males|f:Females|y:Both|n:Neither");
 
 }
 

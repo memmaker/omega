@@ -895,9 +895,8 @@ struct monster *m;
   else {
     print1("It yields to your mercy.");
     Player.alignment+=3;
-    print2("Kill it, rob it, or free it? [krf] ");
-    do response = (char) mcigetc();
-    while ((response != 'k')&&(response != 'r')&&(response !='f'));
+    response = rl_ask("It yields to your mercy.",
+		      "k:Kill it|r:Rob it|f:Free it");
     if (response == 'k') {
       m_death(m);
       print2("You treacherous rogue!");

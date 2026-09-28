@@ -14,8 +14,8 @@ void l_condo()
 
   if (! gamestatusp(SOLD_CONDO)) {
     print1("Rampart Arms. Weekly Rentals and Purchases");
-    print2("Which are you interested in [r,p, or ESCAPE] ");
-    response = mgetc();
+    response = rl_menu("Rampart Arms: Which are you interested in?",
+		       "r:Weekly rental (1000Au)|p:Purchase (50,000Au)");
     if (response == 'p') {
       print2("Only 50,000Au. Buy it? [yn] ");
       if (ynq2()=='y') {
@@ -46,15 +46,9 @@ void l_condo()
   }
   else {
     while (! done) {
-      menuclear();
-      menuprint("Home Sweet Home\n");
-      menuprint("a: Leave items in your safe.\n");
-      menuprint("b: Retrieve items.\n");
-      menuprint("c: Take a week off to rest.\n");
-      menuprint("d: Retire permanently.\n");
-      menuprint("ESCAPE: Leave this place.\n");
-      showmenu();
-      response = (char) mcigetc();
+      response = rl_menu("Home Sweet Home", "a:Leave items in your safe|"
+			 "b:Retrieve items|c:Take a week off to rest|"
+			 "d:Retire permanently");
       if (response == 'a') {
 	i = getitem(NULL_ITEM);
 	if (i != ABORT) {
@@ -390,15 +384,12 @@ void l_trifid()
       p_damage(damage,UNSTOPPABLE,"a trifid");
       morewait();
       print1("You are entangled in tendrils...");
-      menuclear();
-      menuprint("a: Try to break free.\n");
-      menuprint("b: Hang limp and hope the tendrils uncoil.\n");
-      menuprint("c: Pray for assistance.\n");
-      menuprint("d: Attempt to bargain with the hedge.\n");
-      menuprint("e: Click your heels together and wish for escape.\n");
-      menuprint("ANYTHING ELSE: writhe and scream hopelessly.\n");
-      showmenu();
-      switch(menugetc()) {
+      switch(rl_menu("You are entangled in tendrils...",
+		     "a:Try to break free|"
+		     "b:Hang limp and hope the tendrils uncoil|"
+		     "c:Pray for assistance|d:Attempt to bargain with the hedge|"
+		     "e:Click your heels together and wish for escape|"
+		     "z:Writhe and scream hopelessly")) {
       case 'a': 
 	if (Player.str > random_range(200)) {
 	  print1("Amazing! You're now free.");
@@ -482,18 +473,8 @@ void l_brothel()
   clearmsg();
   print1("Try to enter? [yn] ");
   if (ynq1()=='y') {
-    menuclear();
-    menuprint("a:knock on the door.\n");
-    menuprint("b:try to pick the lock.\n");
-    menuprint("c:bash down the door.\n");
-    menuprint("ESCAPE: Leave this house of ill repute.\n");
-    showmenu();
-    do 
-      response = menugetc();
-    while ((response != 'a') &&
-	   (response != 'b') &&
-	   (response != 'c') &&
-	   (response != ESCAPE));
+    response = rl_menu("The House of the Eclipse", "a:Knock on the door|"
+		       "b:Try to pick the lock|c:Bash down the door");
     xredraw();
     if (response == 'a') {
       if (!nighttime())
@@ -810,9 +791,8 @@ void l_oracle()
   }
   else {
     print1("You come before a blue crystal dais. There is a bell and a mirror.");
-    print2("Ring the bell [b], look in the mirror [m], or leave [ESCAPE] ");
-    do response = (char) mcigetc();
-    while ((response != 'b') && (response != 'm') && (response != ESCAPE));
+    response = rl_menu("The blue crystal dais",
+		       "b:Ring the bell|m:Look in the mirror");
     if (response == 'b') {
       print1("The ringing note seems to last forever.");
       print2("You notice a robed figure in front of you....");
@@ -905,9 +885,7 @@ void l_safe()
   pob newitem;
   int attempt = 0;
   print1("You have discovered a safe!");
-  print2("Pick the lock [p], Force the door [f], or ignore [ESCAPE]");
-  do response = (char) mcigetc();
-  while ((response != 'p') && (response != 'f') && (response != ESCAPE));
+  response = rl_menu("A safe!", "p:Pick the lock|f:Force the door");
   if (response == 'p')
     attempt = (2*Player.dex + Player.rank[THIEVES]*10 - random_range(100))/10;
   else if (response == 'f')
