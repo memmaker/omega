@@ -7,7 +7,7 @@
 (function () {
 	'use strict';
 
-	var DIR = '/save', SAVE = DIR + '/omega.sav';
+	var DIR = RvipApp.dir, SAVE = DIR + '/omega.sav';
 	var FONT = '"DejaVu Sans Mono", Menlo, Consolas, "Liberation Mono", monospace';
 	var PAL = ['#000000', '#0000aa', '#00aa00', '#00aaaa', '#aa0000', '#aa00aa', '#aa5500', '#aaaaaa',
 		'#555555', '#5555ff', '#55ff55', '#55ffff', '#ff5555', '#ff55ff', '#ffff55', '#ffffff'];
@@ -24,7 +24,7 @@
 
 	var events = [], lastSave = 0, app;
 	var cols = 80, rows = 24, scr = null, cur = { y: 0, x: 0 }, hero = { y: 0, x: 0 };
-	var auto = true, cv, ctx, wm = null, rects = {}, LAYOUT = '/save/web-layout.json', L = { px: 0, wm: null }, px = 18, cw = 11, ch = 22, dirty = true;
+	var auto = true, cv, ctx, wm = null, rects = {}, LAYOUT = DIR + '/web-layout.json', L = { px: 0, wm: null }, px = 18, cw = 11, ch = 22, dirty = true;
 	var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
 
 	/* message history: lines the game sends (be_msg), append 1 = run-on text,
@@ -318,15 +318,14 @@
 			try { who = localStorage.getItem('omega-name') || ''; } catch (err) { /* no storage */ }
 			if (!who) { who = (prompt('What is your name, adventurer?', '') || '').replace(/[,\n]/g, '').trim().slice(0, 30); try { if (who) localStorage.setItem('omega-name', who); } catch (err) { /* no storage */ } }
 			if (who) Module.ENV.LOGNAME = who;
-			FS.mkdirTree(DIR);
-			FS.mount(Module.IDBFS, {}, DIR);
-			FS.chdir(DIR);
 			Module.addRunDependency('idbfs');
-			FS.syncfs(true, function (err) {
+			/* until 2026-09 omega kept its save in the '/save' database it shared with roguepc */
+			RvipApp.mount(function (err) {
 				if (err) status('Could not read saved games from IndexedDB (' + err + '). Saving may not work in this browser mode.', true);
 				if (hasSave()) Module.arguments.push('omega.sav');
 				Module.removeRunDependency('idbfs');
-			});
+			}, { dir: '/save', files: ['omega.sav'] });
+			FS.chdir(DIR);
 		}],
 		onRuntimeInitialized: function () { app.running = true; status(''); },
 		print: function (s) { console.log(s); },
