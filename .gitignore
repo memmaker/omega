@@ -4,3 +4,5 @@ save/
 *.o
 *.dSYM
 web/dist/
+omega-term
+omega-term.exe
