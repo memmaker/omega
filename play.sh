@@ -1,11 +1,10 @@
 #!/bin/sh
-# Omega 0.80.2 (curses shim + X11). Saves, .omegarc: save/.
+# Omega rebirth (curses shim + X11): make -f port/Makefile, then ./play.sh.
+# Data: lib/ (OMEGALIB; saves in lib/saves/<user>/). ~/.omega.toml: save/.
 cd "$(dirname "$0")"
 D=$(pwd)
 mkdir -p save
 export XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}"
-export HOME="$D/save" OMEGALIB=../omegalib/ OMEGA_BMP="$D/port/tiles.bmp"
+export HOME="$D/save" OMEGALIB="$D/lib/" OMEGA_BMP="$D/port/tiles.bmp"
 export OMEGA_LINES="${OMEGA_LINES:-36}" OMEGA_TEXT="${OMEGA_TEXT:-20}"
-cd save
-[ -f omega.sav ] && exec "$D/omega" omega.sav
 exec "$D/omega"

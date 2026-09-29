@@ -7,3 +7,6 @@ web/dist/
 omega-term
 omega-term.exe
 build/
+build-x11/
+build-web/
+lib/saves/
