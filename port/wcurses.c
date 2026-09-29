@@ -275,12 +275,15 @@ int wnoutrefresh(WINDOW *w)
 
 int doupdate(void)
 {
-    int y, x, pop = 0;
+    int y, x, p, pop = 0;
     if (!curscr) return ERR;
-    /* a window that isn't a pane covers the map: show the whole screen */
-    for (y = P[WC_MAP].y; y < P[WC_MAP].y + P[WC_MAP].r; y++)
-        for (x = P[WC_MAP].x; x < P[WC_MAP].x + P[WC_MAP].c; x++)
-            if (owner[y * COLS + x] == WC_FULL) pop = 1;
+    /* a window that isn't a pane covers a pane (menus over the map, choice
+     * boxes over the side panel): show the whole screen */
+    for (p = WC_MAP; p < WC_PANES; p++)
+        for (y = P[p].y; y < P[p].y + P[p].r; y++)
+            for (x = P[p].x; x < P[p].x + P[p].c; x++)
+                /* side panes have gaps no game window draws: there only text counts */
+                if (owner[y * COLS + x] == WC_FULL && (p == WC_MAP || (curscr->c[y * COLS + x] & A_CHARTEXT) > ' ')) pop = 1;
     be_popup(pop || !P[WC_MAP].r);
     for (y = 0; y < LINES * COLS; y++)
         if (shown[y] != curscr->c[y]) {

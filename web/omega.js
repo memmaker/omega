@@ -22,7 +22,7 @@
 	var KEYS = { ArrowUp: 259, ArrowDown: 258, ArrowLeft: 260, ArrowRight: 261, Home: 55, PageUp: 57,
 		End: 49, PageDown: 51, Clear: 53, Enter: 10, Escape: 27, Backspace: 8, Delete: 8, Tab: 9 };
 
-	var events = [], lastSave = 0, app, promptText = '';
+	var events = [], lastSave = 0, app, promptText = '', ended = false;
 	var cols = 80, rows = 24, scr = null, cur = { y: 0, x: 0 }, hero = { y: 0, x: 0 };
 	var cv, ctx, wm = null, rects = {}, LAYOUT = DIR + '/web-layout.json', L = { wm: null }, px = 18, cw = 11, ch = 22, dirty = true;
 	var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
@@ -160,7 +160,8 @@
 		$('map').firstChild.style.display = one ? 'none' : '';
 		$('full').hidden = one || !popup;
 		if (one || popup) drawFull(one);
-		if (!one) { [MAP, SIDE, STAT].forEach(drawPane); RvipWM.prompt.text(promptText); }
+		if (!one) [MAP, SIDE, STAT].forEach(drawPane);
+		RvipWM.prompt.text(one ? '' : promptText);   /* one window shows the message rows itself */
 	}
 	function drawFull(one) {
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -244,7 +245,7 @@
 			return 1;
 		},
 		end: function (saved) {
-			app.running = false;
+			app.running = false; ended = true;
 			app.sync(function () {
 				$('overlay-msg').textContent = saved ? 'Your game has been saved. Play again to continue it.' : 'The game is over.';
 				$('overlay').hidden = false;
@@ -279,7 +280,8 @@
 
 	/* ---------- input ---------- */
 	function onKey(e) {
-		if (!app.running || e.isComposing || e.metaKey) return;
+		/* keys typed while the game still loads are kept (the first key was lost) */
+		if ((!app.running && (ended || Module.calledRun)) || e.isComposing || e.metaKey) return;
 		var k = e.key, code = e.code || '', m = /^Numpad(\d)$/.exec(code), c;
 		if (m) c = 48 + +m[1];
 		else if (code === 'NumpadEnter') c = 10;

@@ -276,7 +276,7 @@ static void start(int m)
 // rl_ask(): no ESCAPE, don't offer it
 static bool must;
 
-static std::string keyname(int k)
+static std::string key_label(int k)
 {
   if(k == '\n')
   {
@@ -327,7 +327,7 @@ int rl_choose_keys(const std::string &title, const std::vector<std::string> &ite
     k[i] = !keys.empty() ? keys[i] : i < 26 ? 'a' + i : i < 52 ? 'A' + i - 26 : 0;
     if(k[i])
     {
-      lw = std::max(lw, static_cast<int>(keyname(k[i]).size()));
+      lw = std::max(lw, static_cast<int>(key_label(k[i]).size()));
     }
   }
   // letters in either case, unless the keys tell the cases apart
@@ -372,6 +372,7 @@ int rl_choose_keys(const std::string &title, const std::vector<std::string> &ite
   {
     sel = 0;
   }
+  print_messages(); // what led to the question
   WINDOW *save = dupwin(curscr);
   WINDOW *win  = newwin(h + ty + 2, w + 4, y0, x0);
   int top      = 0;
@@ -413,7 +414,7 @@ int rl_choose_keys(const std::string &title, const std::vector<std::string> &ite
         wstandout(win);
       }
       std::string text = items[e].substr(0, w - lw - 2);
-      std::string line = k[e] ? std::format("{:>{}}) {:<{}}", keyname(k[e]), lw, text, w - lw - 2)
+      std::string line = k[e] ? std::format("{:>{}}) {:<{}}", key_label(k[e]), lw, text, w - lw - 2)
                               : std::format("{:>{}}  {:<{}}", "", lw, text, w - lw - 2);
       mvwaddstr(win, ty + i + 1, 2, line.c_str());
       wstandend(win);
