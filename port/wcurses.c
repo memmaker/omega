@@ -199,7 +199,7 @@ int wresize(WINDOW *w, int rows, int cols)
     return OK;
 }
 
-/* window cell -> screen cell: curses pair + A_BOLD -> PC fg/bg (be_x11.c pal[]) */
+/* window cell -> screen cell: curses pair + A_BOLD -> PC fg/bg */
 static chtype fold(chtype v)
 {
     static const int pc[8] = { 0, 4, 2, 6, 1, 5, 3, 7 };   /* curses COLOR_x -> PC colour */

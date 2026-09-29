@@ -1,6 +1,6 @@
 /* Minimal in-memory curses for Omega (port of ~/Games/xrogue/port): every
  * window is composited onto one screen that a frontend draws as text
- * (be_x11.c on the Mac, be_web.c in the browser). Only what Omega rebirth
+ * (be_web.c in the browser). Only what Omega rebirth
  * (C++23) uses; wcurses.c is C, this header is C and C++.
  * Window cell = char | colour pair (bits 8-15) | A_STANDOUT/A_BOLD/A_UNDERLINE.
  * Screen cell (curscr, be_put/be_pput) = char | PC fg (bits 8-11) | PC bg
