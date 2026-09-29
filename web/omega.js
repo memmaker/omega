@@ -312,13 +312,6 @@
 	});
 
 	/* ---------- startup ---------- */
-	/* the player's name: asked once, kept in this game's IndexedDB folder (never localStorage) */
-	function askName(max, bad) {
-		var FS = Module.FS, f = DIR + '/web-name', n = '';
-		try { n = FS.readFile(f, { encoding: 'utf8' }); } catch (e) { }
-		if (!n) { n = (prompt('What is your name, adventurer?', '') || '').replace(bad, '').trim().slice(0, max); if (n) { FS.writeFile(f, n); app.sync(); } }
-		return n;
-	}
 	window.Module = {
 		om: om,
 		arguments: [],
@@ -332,9 +325,9 @@
 			RvipApp.mount(function (err) {
 				if (err) status('Could not read saved games from IndexedDB (' + err + '). Saving may not work in this browser mode.', true);
 				/* rebirth saves to OMEGALIB saves/<user>/<name>.sav: keep them in IndexedDB */
-				try { FS.mkdirTree(DIR + '/saves'); FS.mkdirTree('/omegalib'); FS.symlink(DIR + '/saves', '/omegalib/saves'); } catch (e) { console.warn(e); }
-				var who = askName(30, /[,\n\/]/g);   /* Player.name = get_username() (USER), also the saves/ folder */
-				if (who) Module.ENV.LOGNAME = Module.ENV.USER = who;
+				try { FS.mkdirTree(DIR + '/saves'); FS.mkdirTree('/omegalib'); if (!FS.analyzePath('/omegalib/saves').exists) FS.symlink(DIR + '/saves', '/omegalib/saves'); } catch (e) { console.warn(e); }
+				/* rebirth asks the character's name itself; USER is only the saves/ subfolder */
+				Module.ENV.LOGNAME = Module.ENV.USER = 'player';
 				try { tilesOn = Module.FS.readFile(DIR + '/web-tiles', { encoding: 'utf8' }) !== 'None'; renderTilesBtn(); } catch (e) { }
 				Module.removeRunDependency('idbfs');
 			}, { dir: '/save', files: ['omega.sav'] });

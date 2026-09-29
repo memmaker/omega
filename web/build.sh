@@ -16,7 +16,7 @@ done | xargs -n 2 -P "$(sysctl -n hw.ncpu 2>/dev/null || nproc)" sh -c '
 	case $0 in *.c) exec emcc -O2 -std=c99 -Iport -c "$0" -o "$1";;
 	*) exec em++ '"$CXXFLAGS"' -c "$0" -o "$1";; esac'
 em++ -O2 -fexceptions $OBJ/src/*.o $OBJ/port/*.o \
-	--preload-file lib@/omegalib -o "$OUT/omega-core.js" \
+	--preload-file lib@/omegalib --exclude-file "lib/saves" -o "$OUT/omega-core.js" \
 	-sASYNCIFY -sASYNCIFY_STACK_SIZE=131072 -sSTACK_SIZE=2097152 \
 	-sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=64MB \
 	-sEXPORTED_FUNCTIONS=_main \
