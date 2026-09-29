@@ -1,9 +1,12 @@
-# Omega 0.80.2 — RVIP import (2026-09-26)
+# Omega 0.80.2 — RVIP port
 
 Case O (curses, no Rogue/Moria lineage). `git log`: upstream, then the port.
 
-- Build: `make -f port/Makefile` (X11) · web: `sh web/build.sh`, `web/deploy.sh`.
-- Run: `./play.sh` or `~/Desktop/Games/Roguelikes/Omega.app`. Saves in `save/`.
+- Web: `sh web/build.sh`, `web/deploy.sh` → https://ruzzoli.de/roguelikes/omega/.
+  The help page step needs `~/Desktop/Games/Roguelikes/Docs/build-docs.py`
+  (not in a repo); without it help.html stays empty.
+- Native: `make -f port/Makefile` (X11; `./play.sh`, saves in `save/`);
+  `be_term.c` = terminal build (release workflow).
 - Port: `port/` (curses shim, `be_x11.c`, `be_web.c`), `rl.c` (explore `X`,
   stairs `<`/`>`, Enter menu, inventory item menu), small hooks in
   command1.c, inv.c (`getitem` cursor, `inventory_control` keys), scr.c,
@@ -29,30 +32,21 @@ Case O (curses, no Rogue/Moria lineage). `git log`: upstream, then the port.
   (`wc_tile`, table = Kinder's `gfxMapData` in `port/map.inc`, plus his
   non-countryside cases: cold blast, incubus/satyr). Levelw cells carry
   `A_TILE` + tile in bits 18+; omega.js only blits, scrolled round the player;
-  *Tiles* button, `localStorage`. `drawFull()` blits the A_TILE cells
+  *Tiles* button (choice kept in the game's IndexedDB folder). `drawFull()` blits the A_TILE cells
   (`drawTiles`, T = ch wide, scrolled by `tox`), then every other cell as
   text at x*cw on black: menus and lists over the map (Enter menu, choice
   menus) stay text, never tile-wide. The camera (`RvipWM.center`) gets the
   hero where it is drawn: `(hero.x - tox) * ch` on a tile, else `x * cw`. X11 (`be_x11.c`) draws the same from
   `port/tiles.bmp` (Kinder's BMP as is); `OMEGA_TILES=0 ./play.sh` = text.
-- Web messages: `morewait()` never waits (`auto_more`, RVIP 3d); the message
+- Web messages: `morewait()` never waits (`auto_more`); the message
   history is the log window, the live message rows go to `RvipWM.prompt`
   (rvip-wm.js, `js_key(at_cmd)` hides it on a command key). `exit()` is
   `wc_exit` (`-Dexit=` in build.sh): Emscripten runs no atexit handlers, so
   it shows the game-over overlay, unlinks the autosave and idles.
-- Web zoom is rvip-wm.js's (memmaker/rvip f4d0f76, RVIP.md W4): one size
-  per window and mode (`state.fs` multi, `state.fs1` one window).
-  `layout()` sets `px = wm.zoomed('map') || fit()`: one window fits the
-  whole screen (side panel, messages, lists) unless zoomed there; multi
-  keeps its own map zoom. `size.map` = drawn px, `fontMax.map` = 40. No
-  zoom of its own (old layout `px` -> `wm.fs.map` on load). One window
-  has no title bar, so no A-/A+ there: it always fits.
-- web/build.sh: the help page step needs `~/Desktop/Games/Roguelikes/Docs/
-  build-docs.py` (not in a repo); without it help.html stays empty.
-- Live: https://ruzzoli.de/roguelikes/omega/ (deployed 2026-09-26; the
-  choice menus and web/WM changes of 2026-09-28 are not deployed yet:
-  index deploy.sh for rvip-wm.js, then `web/build.sh && web/deploy.sh`).
-- Not done: sound (6b), mouse.
+- Web zoom is rvip-wm.js's: one size per window and mode (`state.fs` multi,
+  `state.fs1` one window). `layout()` sets `px = wm.zoomed('map') || fit()`;
+  `size.map` = drawn px, `fontMax.map` = 40. One window has no title bar, so
+  no A-/A+ there: it always fits.
 - Tested: char creation, city, countryside travel, temple explore + doors,
   menu, item menu quaff + reopen, save/restore, ASan run (clean), web
   menu/autosave/restore in the browser, starving to death in town (RIP
@@ -62,3 +56,7 @@ Case O (curses, no Rogue/Moria lineage). `git log`: upstream, then the port.
   Chromium): Enter menu over the tiles, map zoom +6, one window and back
   (multi zoom kept, one window fits), camera on the walking player.
   Not tested: X11 build (no Xft here).
+
+## Open
+- Presentation rule 6 (text windows as HTML, only the map a canvas) not done.
+- Sound: Stage 6 web search for upstream audio not done/noted yet. Mouse.
