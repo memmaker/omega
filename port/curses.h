@@ -8,6 +8,7 @@
  * and A_BOLD into the 16 PC colours the frontends draw. */
 #ifndef WCURSES_H
 #define WCURSES_H
+#define OMEGA_SHIM 1   /* the game's web hooks (#ifdef OMEGA_SHIM) */
 #include <stdarg.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -40,7 +41,8 @@ typedef unsigned long mmask_t;
 #define WA_UNDERLINE A_UNDERLINE
 #define COLOR_PAIR(n) ((chtype)((n) & 0xff) << 8)
 #define PAIR_NUMBER(a) ((int)(((a) & A_COLOR) >> 8))
-int wc_tile(int c);
+int wc_tile(int c);            /* screen cell -> tile (port/tiles.cpp) */
+chtype wc_fold(chtype v);     /* window cell -> screen cell */
 
 #define COLOR_BLACK   0
 #define COLOR_RED     1
@@ -56,6 +58,7 @@ typedef struct _win {
     chtype attr;
     int clear, dirty, tiles, pane, delay;
     chtype *c;
+    unsigned char *own;   /* dupwin(curscr): screen cells as they are, with their panes */
     int *lo, *hi;         /* per row: changed columns [lo, hi) since the last refresh */
 } WINDOW;
 

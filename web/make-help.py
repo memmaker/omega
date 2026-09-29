@@ -17,17 +17,19 @@ spec.loader.exec_module(docs)
 from guides import GUIDES   # noqa: E402
 
 game = next(g for g in docs.GAMES if g['file'] == PAGE)
+# rebirth: the command list is lib/help12.txt (build-docs.py still names omegalib/)
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+game['all'] = lambda: docs.parse_omega(os.path.join(ROOT, 'lib', 'help12.txt'))
 guide = dict(GUIDES.get(PAGE, {}))
 info = dict(game['info'])
 kbd = docs.kbd
 esc = html.escape
 
 SAVING = '''<ul>
-<li><strong>Saving is automatic.</strong> The game is stored in this browser (IndexedDB) between your commands (at most every two seconds). Reloading the page continues from there.</li>
-<li><kbd>S</kbd> saves and ends the session, as in the original (press <kbd>Enter</kbd> at the file name); reload the page (or press <em>Play again</em>) to continue.</li>
+<li><strong>Saving is automatic.</strong> The game is stored in this browser (IndexedDB) between your commands (at most every two seconds), under your character's name. After a reload, pick it under <em>Saved games</em> in the start menu to continue.</li>
+<li><kbd>S</kbd> saves and ends the session, as in the original; reload the page (or press <em>Play again</em>) to continue.</li>
 <li>When your character dies or you quit with <kbd>Q</kbd>, the save is deleted: death is final.</li>
-<li>Each browser keeps <strong>one game</strong>. <em>New game</em> deletes it and starts over.</li>
-<li><em>Export save</em> downloads the save file; <em>Import save</em> loads one (also a save from the Mac version, <code>omega.sav</code>).</li>
+<li><em>Export save</em> downloads the save file; <em>Import save</em> loads one.</li>
 <li>Private/incognito windows and "clear site data" delete the stored game. Export first if it matters.</li>
 </ul>'''
 
@@ -82,8 +84,8 @@ parts.append(section('web', 'Playing in the browser', WEB))
 
 # RVIP: About this version
 parts.append('<h2 id="h-version">About this version</h2><ul>'
-             '<li>Based on <strong>Omega 0.80.2</strong> by Laurence R. Brothers, maintained by Erik Max Francis '
-             '(source archive <code>omega-0.80.2-src.zip</code>; its download source was not recorded).</li>'
+             '<li>Based on <strong>Omega Rebirth</strong> (github.com/Lyle-Tafoya/omega-rebirth, C++23) by Lyle Tafoya, '
+             'from Omega by Laurence R. Brothers and Erik Max Francis.</li>'
              '<li>Our changes (curses shim, auto-explore, stairs walking, command menu, inventory cursor and item menus, web build) '
              'are local to this port; they are not published as a repository.</li></ul>')
 print('\n'.join(parts))

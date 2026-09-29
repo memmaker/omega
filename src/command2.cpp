@@ -1256,6 +1256,7 @@ void save(int force)
     std::string file_name = std::format("{}/{}.sav", save_file_directory, Player.name);
     if(save_game(file_name))
     {
+      Rl_saved = true;
       endgraf();
       std::cout << "Bye!" << std::endl;
       exit(0);

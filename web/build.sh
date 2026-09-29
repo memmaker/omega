@@ -27,6 +27,6 @@ cp web/index.html web/omega.js web/tiles.png "$OUT/"
 if [ -d ~/Games/roguelikes-index/fonts ]; then
 	(cd ~/Games/roguelikes-index/fonts && ls *.woff | sed 's/\.woff$//') | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().split()))' > "$OUT/fonts.json"
 else echo '[]' > "$OUT/fonts.json"; fi
-# ponytail: build-docs.py (~/Desktop) still reads omegalib/help12.txt; rebirth has lib/
+# help page: ~/Desktop/.../build-docs.py + lib/help12.txt (make-help.py)
 python3 web/make-help.py > "$OUT/help.html" || { echo "build.sh: no help.html (make-help.py failed)" >&2; rm -f "$OUT/help.html"; }
 ls -la "$OUT"

@@ -129,13 +129,17 @@ WINDOW *dupwin(WINDOW *s)
 {
     WINDOW *w = newwin(s->maxy, s->maxx, s->begy, s->begx);
     memcpy(w->c, s->c, sizeof(chtype) * s->maxy * s->maxx);
+    if (s == curscr) {      /* a copy of the screen: put back as is (menus restore it) */
+        w->own = malloc(LINES * COLS);
+        memcpy(w->own, owner, LINES * COLS);
+    }
     return w;
 }
 
 int delwin(WINDOW *w)
 {
     if (!w) return ERR;
-    free(w->c); free(w->lo); free(w->hi); free(w);
+    free(w->c); free(w->lo); free(w->hi); free(w->own); free(w);
     return OK;
 }
 
@@ -200,7 +204,7 @@ int wresize(WINDOW *w, int rows, int cols)
 }
 
 /* window cell -> screen cell: curses pair + A_BOLD -> PC fg/bg */
-static chtype fold(chtype v)
+chtype wc_fold(chtype v)
 {
     static const int pc[8] = { 0, 4, 2, 6, 1, 5, 3, 7 };   /* curses COLOR_x -> PC colour */
     int p = PAIR_NUMBER(v), f = pairs[p][0], b = pairs[p][1], fg, bg;
@@ -255,11 +259,13 @@ int wnoutrefresh(WINDOW *w)
     for (y = 0; y < w->maxy; y++, w->lo[y - 1] = w->maxx, w->hi[y - 1] = 0)
         for (x = w->lo[y]; x < w->hi[y]; x++) {
             int sy = y + w->begy, sx = x + w->begx;
-            chtype v = fold(w->c[y * w->maxx + x]) | (w->tiles ? A_TILE | (chtype)wc_tile(w->c[y * w->maxx + x]) << 18 : 0);
-            if (sy >= 0 && sx >= 0 && sy < LINES && sx < COLS) { curscr->c[sy * COLS + sx] = v; owner[sy * COLS + sx] = w->pane; }
-            if (w->pane) {
-                int py = sy - P[w->pane].y, px = sx - P[w->pane].x, i = py * P[w->pane].c + px;
-                if (P[w->pane].shown[i] != v) { P[w->pane].shown[i] = v; be_pput(w->pane, py, px, v); }
+            chtype v = w->own ? w->c[y * w->maxx + x] : wc_fold(w->c[y * w->maxx + x]);
+            int pane = w->own ? w->own[sy * COLS + sx] : w->pane;
+            if (w->tiles) v |= A_TILE | (chtype)wc_tile(v) << 18;
+            if (sy >= 0 && sx >= 0 && sy < LINES && sx < COLS) { curscr->c[sy * COLS + sx] = v; owner[sy * COLS + sx] = pane; }
+            if (pane) {
+                int py = sy - P[pane].y, px = sx - P[pane].x, i = py * P[pane].c + px;
+                if (P[pane].shown[i] != v) { P[pane].shown[i] = v; be_pput(pane, py, px, v); }
             }
         }
     w->dirty = 0;

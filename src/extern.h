@@ -28,6 +28,19 @@ Omega. If not, see <https://www.gnu.org/licenses/>.
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
+
+// rl.cpp functions (port)
+int rl_auto();
+int rl_command(int);
+int rl_item_menu(int);
+int rl_choose(const std::string &, const std::vector<std::string> &, int = 0);
+int rl_choose_keys(const std::string &, const std::vector<std::string> &, const std::vector<int> &, int = 0);
+int rl_menu(const std::string &, const std::string &);
+int rl_ask(const std::string &, const std::string &);
+void rl_run_end(const char *, const std::string &);
+void rl_messages();
+extern int Rl_at_prompt, Rl_saved, Rl_reopen;
 
 // omega.cpp functions
 void init_world();

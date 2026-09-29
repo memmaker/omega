@@ -45,6 +45,7 @@ void scrolling_buffer::append(const std::string &message, bool pad, bool force_b
     if(message_history.size() > length)
     {
       message_history.pop_front();
+      ++dropped_lines;
     }
   }
 }
@@ -87,10 +88,11 @@ void scrolling_buffer::process_queue()
       if(message_history.size() > length)
       {
         message_history.pop_front();
+      ++dropped_lines;
       }
       buffer_row.clear();
     }
-    buffer_row += (buffer_row.empty() ? "" : " ") + message;
+    buffer_row = buffer_row == "_" ? message : buffer_row + (buffer_row.empty() ? "" : " ") + message; // port: "_" only marks "nothing yet"
   }
   if(buffer_row != "_")
   {
@@ -98,6 +100,7 @@ void scrolling_buffer::process_queue()
     if(message_history.size() > length)
     {
       message_history.pop_front();
+      ++dropped_lines;
     }
   }
 }
@@ -124,4 +127,10 @@ uint16_t scrolling_buffer::get_length() const
 void scrolling_buffer::clear()
 {
   message_history.clear();
+}
+
+// lines dropped at the front so far (the web port numbers every line)
+size_t scrolling_buffer::dropped() const
+{
+  return dropped_lines;
 }

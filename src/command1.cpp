@@ -53,7 +53,13 @@ void p_process()
     {
       searchval = 0;
       print_messages();
-      Cmd = get_level_input();
+      if(!(Cmd = rl_auto()))
+      {
+        Rl_at_prompt = true;
+        Cmd          = get_level_input();
+        Rl_at_prompt = false;
+      }
+      Cmd = rl_command(Cmd);
     }
     Command_Duration = 0;
     switch(Cmd)
@@ -380,7 +386,10 @@ void p_country_process()
   {
     no_op = false;
     print_messages();
-    Cmd = get_message_input();
+    Rl_at_prompt = true;
+    Cmd          = get_message_input();
+    Rl_at_prompt = false;
+    Cmd          = rl_command(Cmd);
     switch(Cmd)
     {
       case ' ':

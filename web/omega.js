@@ -7,7 +7,7 @@
 (function () {
 	'use strict';
 
-	var DIR = RvipApp.dir, SAVE = DIR + '/omega.sav';
+	var DIR = RvipApp.dir, SAVES = DIR + '/saves/player';
 	var FONT = '"DejaVu Sans Mono", Menlo, Consolas, "Liberation Mono", monospace';
 	var PAL = ['#000000', '#0000aa', '#00aa00', '#00aaaa', '#aa0000', '#aa00aa', '#aa5500', '#aaaaaa',
 		'#555555', '#5555ff', '#55ff55', '#55ffff', '#ff5555', '#ff55ff', '#ffff55', '#ffffff'];
@@ -17,11 +17,12 @@
 	var tilesOn = true, sheet = new Image(), tox = 0;
 	sheet.onload = function () { dirty = true; draw(); if (tilesOn) renderLists(true); };
 	sheet.src = 'tiles.png';
-	/* arrows and keypad = Omega's number keys (moving, and 8/2 in lists) */
-	var KEYS = { ArrowUp: 56, ArrowDown: 50, ArrowLeft: 52, ArrowRight: 54, Home: 55, PageUp: 57,
+	/* arrows = curses KEY_UP ... (rebirth's menus and point-buy take them, moving too);
+	 * Home/PageUp/End/PageDown and the keypad = Omega's number keys */
+	var KEYS = { ArrowUp: 259, ArrowDown: 258, ArrowLeft: 260, ArrowRight: 261, Home: 55, PageUp: 57,
 		End: 49, PageDown: 51, Clear: 53, Enter: 10, Escape: 27, Backspace: 8, Delete: 8, Tab: 9 };
 
-	var events = [], lastSave = 0, app;
+	var events = [], lastSave = 0, app, promptText = '';
 	var cols = 80, rows = 24, scr = null, cur = { y: 0, x: 0 }, hero = { y: 0, x: 0 };
 	var cv, ctx, wm = null, rects = {}, LAYOUT = DIR + '/web-layout.json', L = { wm: null }, px = 18, cw = 11, ch = 22, dirty = true;
 	var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
@@ -39,7 +40,7 @@
 	function status(msg, isError) { app.status(msg, isError); }
 
 	/* ---------- drawing: the whole screen (cv) and one canvas per pane, all from the game's cells ---------- */
-	var MAP = 1, SIDE = 2, STAT = 3, MSG = 4, PANE_BOX = { 1: 'map', 2: 'side', 3: 'stat' }, P = {}, popup = true;
+	var MAP = 1, SIDE = 2, STAT = 3, PANE_BOX = { 1: 'map', 2: 'side', 3: 'stat' }, P = {}, popup = true;
 	/* fonts: L.face for the text windows and pop-ups, L.mapFace for the map (text mode) */
 	function face(map) { var n = map ? L.mapFace : L.face; return n ? '"' + n + '", ' + FONT : FONT; }
 	function measure() {
@@ -80,12 +81,6 @@
 		if (v & A_STANDOUT) { t = fg; fg = bg; bg = t; }
 		if (bg) { g.fillStyle = PAL[bg]; g.fillRect(x, y, w, m.ch); }
 		if (c > 32) { g.fillStyle = PAL[fg]; g.fillText(String.fromCharCode(c), x + (w - m.cw) / 2, y + (m.ch - m.px) / 2); }
-	}
-	function paneText(p) {
-		var q = P[p];
-		if (!q) return '';
-		var t = String.fromCharCode.apply(null, q.buf.map(function (v) { return v & 0xff || 32; }));
-		return t.replace(new RegExp('.{' + q.c + '}', 'g'), '$&\n').replace(/ +$/gm, '').trim();
 	}
 	function drawPane(p) {
 		var q = P[p], c = $(PANE_BOX[p]).firstChild;
@@ -165,7 +160,7 @@
 		$('map').firstChild.style.display = one ? 'none' : '';
 		$('full').hidden = one || !popup;
 		if (one || popup) drawFull(one);
-		if (!one) { [MAP, SIDE, STAT].forEach(drawPane); RvipWM.prompt.text(paneText(MSG)); }
+		if (!one) { [MAP, SIDE, STAT].forEach(drawPane); RvipWM.prompt.text(promptText); }
 	}
 	function drawFull(one) {
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -233,6 +228,8 @@
 		pput: function (p, y, x, v) { P[p].buf[y * P[p].c + x] = v; dirty = true; },
 		popup: function (on) { if (popup !== !!on) { popup = !!on; dirty = true; } },
 		msg: msg,
+		/* the message lines since the last command (src/rl.cpp) */
+		prompt: function (s) { if (s !== promptText) { promptText = s; dirty = true; } },
 		flush: function () { var l = $('log'); l.scrollTop = l.scrollHeight; draw(); },
 		lists: function (inv, vis) { lastInv = inv; lastVis = vis; renderLists(); },
 		/* atCmd: the game waits for a command, not a y/n or item prompt */
@@ -303,12 +300,21 @@
 	}
 
 	/* ---------- saves: IndexedDB (IDBFS), help (../rvip-app.js) ---------- */
-	function hasSave() { try { Module.FS.stat(SAVE); return true; } catch (e) { return false; } }
+	/* rebirth keeps one file per character: saves/player/<Name>.sav (OMEGALIB saves/ -> here) */
+	function saves() {
+		try { return Module.FS.readdir(SAVES).filter(function (f) { return /\.sav$/.test(f); }).map(function (f) { return SAVES + '/' + f; }); }
+		catch (e) { return []; }
+	}
 	app = RvipApp({
 		name: 'omega',
-		save: function () { return hasSave() ? SAVE : null; },
-		clear: function () { if (hasSave()) Module.FS.unlink(SAVE); },
-		put: function (file, data) { Module.FS.writeFile(SAVE, data); }
+		save: function () { var l = saves(); return l.length > 1 ? l : l[0] || null; },
+		clear: function () { saves().forEach(function (f) { Module.FS.unlink(f); }); },
+		put: function (file, data) {
+			var n = (file.name || '').split('/').pop();
+			if (!/\.sav$/.test(n)) n = 'Imported.sav';
+			Module.FS.mkdirTree(SAVES);
+			Module.FS.writeFile(SAVES + '/' + n, data);
+		}
 	});
 
 	/* ---------- startup ---------- */

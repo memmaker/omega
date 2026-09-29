@@ -730,6 +730,7 @@ void restore_player(std::ifstream &save_file, player &p)
 
   file_read(save_file, CitySiteList);
   file_read(save_file, GameStatus);
+  resetgamestatus(SUPPRESS_PRINTING, GameStatus); // port: the web autosave runs with it set
   file_read(save_file, Current_Environment);
   file_read(save_file, Last_Environment);
   file_read(save_file, Current_Dungeon);

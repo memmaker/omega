@@ -311,6 +311,11 @@ void print_messages()
   static size_t last_message_count = 0;
   const std::deque<std::string> &message_history = message_buffer.get_message_history();
   size_t start = last_message_count;
+#ifdef OMEGA_SHIM
+  // RVIP: no --MORE-- stops; the history is the log window (rl_messages)
+  start = message_history.size() > static_cast<size_t>(message_window_length) ? message_history.size() - message_window_length : 0;
+  rl_messages();
+#endif
   for(bool done = false; !done;)
   {
     werase(message_window);
@@ -658,6 +663,25 @@ void initialize_windows()
   footing_window            = newwin(1, 10, 6, ScreenWidth + 32);
   location_window           = newwin(1, 41, 11, ScreenWidth + 1);
   room_name_window          = newwin(1, 41, 12, ScreenWidth + 1);
+#ifdef OMEGA_SHIM
+  // web: each page window shows its game windows (port/wcurses.c panes)
+  level_window->tiles = 1;
+  wc_pane(level_window, WC_MAP);
+  for(WINDOW *w : {name_window, time_window, health_label_window, health_window, health_meter_window,
+                   mana_label_window, mana_window, mana_meter_window, strength_label_window, strength_window,
+                   dexterity_label_window, dexterity_window, constitution_label_window, constitution_window,
+                   agility_label_window, agility_window, intelligence_label_window, intelligence_window,
+                   power_label_window, power_window, gold_label_window, gold_window, hitroll_label_window,
+                   hitroll_window, dmgroll_label_window, dmgroll_window, defense_label_window, defense_window,
+                   absorption_label_window, absorption_window, speed_label_window, speed_window,
+                   experience_label_window, experience_window, carry_label_window, carry_window, hunger_window,
+                   poison_window, disease_window, footing_window})
+  {
+    wc_pane(w, WC_SIDE);
+  }
+  wc_pane(location_window, WC_STAT);
+  wc_pane(room_name_window, WC_STAT);
+#endif
 
   clear();
   touchwin(stdscr);
@@ -825,6 +849,10 @@ int get_level_input()
 
 void more_wait()
 {
+#ifdef OMEGA_SHIM
+  print_messages(); // RVIP: --MORE-- does not wait, the messages are in the log
+  return;
+#endif
   if(gamestatusp(SUPPRESS_PRINTING, GameStatus))
   {
     return;
@@ -973,6 +1001,9 @@ void drawplayer()
   }
   lastx = Player.x;
   lasty = Player.y;
+#ifdef OMEGA_SHIM
+  be_hero(level_window->begy + screenmod(Player.y), level_window->begx + screenmod_horizontal(Player.x));
+#endif
 }
 
 void setlastxy(int new_x, int new_y) // used when changing environments
@@ -1991,6 +2022,7 @@ void maddch(char c)
 
 void display_death(const std::string &source)
 {
+  rl_run_end("death", source);
   clear();
   touchwin(stdscr);
   addstr(std::format("\n\n\n\nRequiescat In Pace, {} ({} points)\n", Player.name, calc_points()).c_str()
@@ -2010,6 +2042,7 @@ void display_death(const std::string &source)
 
 void display_win()
 {
+  rl_run_end("win", "");
   clear();
   touchwin(stdscr);
   std::string win_message;
@@ -2047,6 +2080,7 @@ void display_win()
 
 void display_quit()
 {
+  rl_run_end("quit", "");
   clear();
   touchwin(stdscr);
   std::string quit_message = "A quitter.";
@@ -2066,6 +2100,7 @@ void display_quit()
 
 void display_bigwin()
 {
+  rl_run_end("win", "");
   clear();
   touchwin(stdscr);
   std::string win_message = "retired, an Adept of Omega.";

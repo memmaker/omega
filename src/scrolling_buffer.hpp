@@ -42,6 +42,7 @@ public:
   const std::deque<std::string> &get_message_history(bool update = true);
   uint16_t get_width() const;
   uint16_t get_length() const;
+  size_t dropped() const;
 
 private:
   uint16_t width;
@@ -49,6 +50,7 @@ private:
   void process_queue();
   std::deque<std::string> message_history;
   std::queue<queued_message> message_queue;
+  size_t dropped_lines = 0;
 };
 
 #endif
