@@ -1,0 +1,16 @@
+                                    *******
+                                 *****   *****
+                              *****         *****
+                             ****   welcome   ****
+                            ***       t o       ***
+                             ***     omega     ***
+                              ****           ****
+                                 ****    ****
+                              *    **    **    *
+                               *****      *****
+
+        Omega is copyright (C) 1987,1988,1989 by: Laurence R. Brothers
+         Modifications copyright (C) 2019, 2021-2023 by: Lyle Tafoya
+
+         This is free software, and you are welcome to redistribute it
+               under certain conditions; see license for details
