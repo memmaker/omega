@@ -287,11 +287,7 @@ void l_lift()
   queue_message("You walk onto a shimmering disk....");
   queue_message("The disk vanishes, and a glow surrounds you.");
   queue_message("You feel weightless.... You feel ghostly....");
-  queue_message("Go up, down, or neither [u,d,ESCAPE] ");
-  do
-  {
-    response = (char)mcigetc();
-  } while((response != 'u') && (response != 'd') && (response != ESCAPE));
+  response = rl_menu("Go up, down, or neither?", "u:Up|d:Down");
   if(response != ESCAPE)
   {
     queue_message("How many levels?");

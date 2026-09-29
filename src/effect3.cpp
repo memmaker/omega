@@ -29,38 +29,17 @@ Omega. If not, see <https://www.gnu.org/licenses/>.
 
 int list_monsters()
 {
-  int itemno;
-  queue_message("Show ID list? ");
-  if(ynq() == 'y')
+  std::vector<std::string> items;
+  for(int i = 0; i < NUMMONSTERS; ++i)
   {
-    do
-    {
-      queue_message("Summon monster: ");
-      std::vector<std::string> lines;
-      for(int i = 0; i < NUMMONSTERS; ++i)
-      {
-        lines.emplace_back(std::format("{}:{}", i + 1, Monsters[i].monstring));
-      }
-      menu->load(lines);
-      int player_input = menu->get_player_input();
-      ungetch(player_input);
-
-      itemno = (int)parsenum() - 1;
-      if((itemno < 0) || (itemno > NUMMONSTERS - 1))
-      {
-        queue_message("How about trying a real monster?");
-      }
-    } while(itemno < 0 || itemno > NUMMONSTERS - 1);
+    items.push_back(Monsters[i].monstring);
   }
-  else
+  int i;
+  while((i = rl_choose("Summon which monster?", items)) < 0)
   {
-    do
-    {
-      queue_message("Summon monster: ");
-      itemno = (int)parsenum() - 1;
-    } while(itemno < 0 || itemno > NUMMONSTERS - 1);
   }
-  return itemno;
+  xredraw();
+  return i;
 }
 
 // if know id, then summon that monster; else (if < 0) get one
@@ -118,27 +97,14 @@ void summon(int blessing, int id)
 
 int itemlist(int itemindex, int num)
 {
-  append_message("Show ID list? ", true);
-
-  int player_input = ynq();
-  append_message("Item ID? ", true);
-  if(player_input == 'y')
+  std::vector<std::string> items;
+  for(int i = 0; i < num; ++i)
   {
-    std::vector<std::string> lines;
-    for(int i = 0; i < num; ++i)
-    {
-      lines.emplace_back(std::format("{}:{}", i + 1, Objects[i + itemindex].truename));
-    }
-    menu->load(lines);
-    player_input = menu->get_player_input();
-    ungetch(player_input);
+    items.emplace_back(Objects[i + itemindex].truename);
   }
-  int itemno = (int)parsenum() - 1;
-  if(itemno >= num || itemno < 0)
-  {
-    itemno = ABORT;
-  }
-  return itemno;
+  int i = rl_choose("Which one?", items);
+  xredraw();
+  return i < 0 ? ABORT : i;
 }
 
 // uncurse all items, cure diseases, and neutralize poison
@@ -729,29 +695,16 @@ void strategic_teleport(int blessing)
   }
   else
   {
-    queue_message("Below each portal is a caption. Enter which one:");
-    menuclear();
-    menuprint("a: Rampart\n");
-    menuprint("b: Village of Star View\n");
-    menuprint("c: Village of Woodmere\n");
-    menuprint("d: Village of Stormwatch\n");
-    menuprint("e: Village of Thaumaris\n");
-    menuprint("f: Village of Skorch\n");
-    menuprint("g: Village of Whorfen\n");
-    menuprint("h: Temple of the Noose\n");
-    menuprint("i: The Parthenon\n");
-    menuprint("j: Temple of the Black Hand\n");
-    menuprint("k: Temple of the Hidden Moon\n");
-    menuprint("l: WoodHenge\n");
-    menuprint("m: Temple of Destiny\n");
-    menuprint("n: HellWell Volcano\n");
+    queue_message("Below each portal is a caption.");
+    std::string spec = "a:Rampart|b:Village of Star View|c:Village of Woodmere|d:Village of Stormwatch|"
+                       "e:Village of Thaumaris|f:Village of Skorch|g:Village of Whorfen|h:Temple of the Noose|"
+                       "i:The Parthenon|j:Temple of the Black Hand|k:Temple of the Hidden Moon|l:WoodHenge|"
+                       "m:Temple of Destiny|n:HellWell Volcano";
     if(gamestatusp(CHEATED, GameStatus))
     {
-      menuprint("z: Anywhere\n");
+      spec += "|z:Anywhere";
     }
-    menuprint("ANYTHING ELSE: Avoid entering a portal.");
-    showmenu();
-    switch((char)mcigetc())
+    switch(rl_menu("Enter which portal?", spec))
     {
       case 'a':
         change_environment(E_COUNTRYSIDE);

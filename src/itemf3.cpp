@@ -390,11 +390,7 @@ void i_enchantment(std::unique_ptr<object> &o)
   {
     ZapDay  = day();
     ZapHour = hour();
-    queue_message("Zap with white or black end [wb] ");
-    do
-    {
-      response = (char)mcigetc();
-    } while((response != 'w') && (response != 'b'));
+    response = rl_ask("Zap with which end?", "w:White end|b:Black end");
     queue_message("The staff discharges!");
     if(response == 'w')
     {
@@ -451,17 +447,9 @@ int orbcheck(char element)
   char response;
   queue_message("The orb begins to glow with increasing intensity!");
   queue_message("You have the feeling you need to do something more....");
-  queue_message("Burn it in fire [f] ");
-  queue_message("Douse it with water [w] ");
-  queue_message("Smash it against the earth [e] ");
-  queue_message("Toss is through the air [a] ");
-  queue_message("Mix the above actions, doing them in sequence [m] ");
-  do
-  {
-    queue_message("Which one [f,w,e,a,m] ");
-    response = (char)mcigetc();
-  } while((response != 'f') && (response != 'w') && (response != 'e') && (response != 'a') &&
-          (response != 'm'));
+  response = rl_ask("What do you do with the orb?", "f:Burn it in fire|w:Douse it with water|"
+                    "e:Smash it against the earth|a:Toss it through the air|"
+                    "m:Mix the above actions, doing them in sequence");
   return response == element;
 }
 

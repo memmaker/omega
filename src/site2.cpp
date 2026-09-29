@@ -35,8 +35,7 @@ void l_condo()
   if(!gamestatusp(SOLD_CONDO, GameStatus))
   {
     queue_message("Rampart Arms. Weekly Rentals and Purchases");
-    append_message("Which are you interested in [r,p, or ESCAPE] ", true);
-    response = mgetc();
+    response = rl_menu("Rampart Arms: Which are you interested in?", "r:Weekly rental (1000Au)|p:Purchase (50,000Au)");
     if(response == 'p')
     {
       queue_message("Only 50,000Au. Buy it? [yn] ");
@@ -79,14 +78,10 @@ void l_condo()
   }
   else
   {
-    const std::vector<std::string> lines = {{"Home Sweet Home"},        {"a: Leave items in your safe."},
-                                            {"b: Retrieve items."},     {"c: Take a week off to rest."},
-                                            {"d: Retire permanently."}, {"ESCAPE: Leave this place."}};
     while(!done)
     {
-      menu->load(lines);
-      menu->print();
-      response = static_cast<char>(menu->get_player_input());
+      response = rl_menu("Home Sweet Home", "a:Leave items in your safe|b:Retrieve items|"
+                         "c:Take a week off to rest|d:Retire permanently");
       if(response == 'a')
       {
         int i = getitem(NULL_ITEM);
@@ -455,16 +450,10 @@ void l_triffid()
     {
       p_damage(damage, UNSTOPPABLE, "a triffid");
       queue_message("You are entangled in tendrils...");
-      std::vector<std::string> lines = {
-        {"a: Try to break free."},
-        {"b: Hang limp and hope the tendrils uncoil."},
-        {"c: Pray for assistance."},
-        {"d: Attempt to bargain with the hedge."},
-        {"e: Click your heels together and wish for escape."},
-        {"ANYTHING ELSE: writhe and scream hopelessly."}};
-      menu->load(lines);
-      menu->print();
-      switch(menugetc())
+      switch(rl_menu("You are entangled in tendrils...", "a:Try to break free|"
+                     "b:Hang limp and hope the tendrils uncoil|c:Pray for assistance|"
+                     "d:Attempt to bargain with the hedge|e:Click your heels together and wish for escape|"
+                     "z:Writhe and scream hopelessly"))
       {
         case 'a':
           if(Player.str > random_range(200))
@@ -558,17 +547,7 @@ void l_brothel()
   queue_message("Try to enter? [yn] ");
   if(ynq() == 'y')
   {
-    std::vector<std::string> lines = {
-      {"a:knock on the door."},
-      {"b:try to pick the lock."},
-      {"c:bash down the door."},
-      {"ESCAPE: Leave this house of ill repute."}};
-    menu->load(lines);
-    menu->print();
-    do
-    {
-      response = menugetc();
-    } while((response != 'a') && (response != 'b') && (response != 'c') && (response != ESCAPE));
+    response = rl_menu("The House of the Eclipse", "a:Knock on the door|b:Try to pick the lock|c:Bash down the door");
     xredraw();
     if(response == 'a')
     {
@@ -591,12 +570,7 @@ void l_brothel()
           else
           {
             Player.cash -= 500;
-            queue_message("Would you like to see a male or female worker? [mf] ");
-            char preference;
-            do
-            {
-              preference = static_cast<char>(mcigetc());
-            } while(preference != 'm' && preference != 'f' && preference != 'n');
+            char preference = rl_ask("Would you like to see a male or female worker?", "m:Male|f:Female|n:Neither");
             queue_message("You are ushered into an opulently appointed hall.");
             queue_message("After an expensive dinner (takeout from Les Crapuleux)");
             if(preference == 'n')
@@ -952,11 +926,7 @@ void l_oracle()
   else
   {
     queue_message("You come before a blue crystal dais. There is a bell and a mirror.");
-    queue_message("Ring the bell [b], look in the mirror [m], or leave [ESCAPE] ");
-    do
-    {
-      response = (char)mcigetc();
-    } while((response != 'b') && (response != 'm') && (response != ESCAPE));
+    response = rl_menu("The blue crystal dais", "b:Ring the bell|m:Look in the mirror");
     if(response == 'b')
     {
       queue_message("The ringing note seems to last forever.");
@@ -1068,11 +1038,7 @@ void l_safe()
   char response;
   int attempt = 0;
   queue_message("You have discovered a safe!");
-  queue_message("Pick the lock [p], Force the door [f], or ignore [ESCAPE]");
-  do
-  {
-    response = (char)mcigetc();
-  } while((response != 'p') && (response != 'f') && (response != ESCAPE));
+  response = rl_menu("A safe!", "p:Pick the lock|f:Force the door");
   if(response == 'p')
   {
     attempt = (2 * Player.dex + Player.rank[THIEVES] * 10 - random_range(100)) / 10;

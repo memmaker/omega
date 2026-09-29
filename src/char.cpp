@@ -924,37 +924,11 @@ int fixnpc(int status)
       npcbehavior += NEUTRAL;
       menuprint("\n\n NEUTRAL");
     }
-    menuprint("\n\n1: hand-to-hand combat");
-    menuprint("\n2: missile combat");
-    menuprint("\n3: spellcasting");
-    menuprint("\n4: thieving");
-    menuprint("\n5: escape");
-    menuprint("\n\nEnter NPC response to combat: ");
     showmenu();
-    response = '0';
-    while((response != '1') && (response != '2') && (response != '3') && (response != '4') &&
-          (response != '5'))
-    {
-      response = menugetc();
-    }
-    menuaddch(response);
+    response = rl_ask("NPC response to combat:", "1:hand-to-hand combat|2:missile combat|3:spellcasting|4:thieving|5:escape");
     npcbehavior += 10 * (response - '0');
     npcbehavior += 100 * competence_check(response - '0');
-    response = '0';
-    menuclear();
-    menuprint("1: threaten");
-    menuprint("\n2: greet");
-    menuprint("\n3: aid");
-    menuprint("\n4: beg");
-    menuprint("\n5: silence");
-    menuprint("\n\nEnter NPC response to conversation: ");
-    showmenu();
-    while((response != '1') && (response != '2') && (response != '3') && (response != '4') &&
-          (response != '5'))
-    {
-      response = menugetc();
-    }
-    menuaddch(response);
+    response = rl_ask("NPC response to conversation:", "1:threaten|2:greet|3:aid|4:beg|5:silence");
     npcbehavior += 1000 * (response - '0');
     xredraw();
   }

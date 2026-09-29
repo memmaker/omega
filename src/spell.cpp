@@ -572,156 +572,35 @@ const std::array<std::string, spell::NUM_SPELLS> spell::spell_names{
   "true sight",
   "wishing"};
 
-std::vector<std::string> known_spells(int first, int last)
+// port: the known spells with their mana cost, to pick one from a menu
+std::optional<spell::spell_id> spellparse()
 {
-  std::vector<std::string> lines;
-  lines.emplace_back("Possible Spells:");
-
-  bool printed = false;
-  for(int i = first; i <= last; ++i)
+  std::vector<std::string> items;
+  std::vector<int> index;
+  for(int i = 0; i < spell::NUM_SPELLS; ++i)
   {
     if(spell::Spells[i].known)
     {
-      printed = true;
-      lines.emplace_back(
-        std::format("  {} ({} mana)", spell::spell_names[i], spell::Spells[i].powerdrain)
-      );
+      items.push_back(std::format("{} ({} mana)", spell::spell_names[i], spell::Spells[i].powerdrain));
+      index.push_back(i);
     }
   }
-  if(!printed)
-  {
-    lines.emplace_back("No spells match that prefix!");
-  }
-  return lines;
-}
-
-std::optional<spell::spell_id> spellparse()
-{
-  spell_id_type first = 0;
-  while(first < spell::NUM_SPELLS && !spell::Spells[first].known)
-  {
-    ++first;
-  }
-  if(first == spell::NUM_SPELLS)
+  if(items.empty())
   {
     append_message("You don't know any spells!", true);
     return {};
   }
-  std::string prefix;
-  bool found         = false;
-  spell_id_type last = spell::NUM_SPELLS - 1;
-  bool menu_shown    = false;
-  int player_input;
-  append_message("", true);
-  do
-  {
-    if(menu_shown)
-    {
-      menu->load(known_spells(first, last));
-      player_input = menu->get_player_input();
-    }
-    else
-    {
-      player_input = mgetc();
-    }
-    switch(player_input)
-    {
-      case KEY_BACKSPACE:
-      case KEY_DC:
-      case DELETE:
-      case '\b':
-        if(!prefix.empty())
-        {
-          prefix.pop_back();
-          for(int f = first; f >= 0 && spell::spell_names[f].starts_with(prefix); --f)
-          {
-            if(spell::Spells[f].known)
-            {
-              first = f;
-            }
-          }
-          for(int l = last; l < spell::NUM_SPELLS && spell::spell_names[l].starts_with(prefix); ++l)
-          {
-            if(spell::Spells[l].known)
-            {
-              last = l;
-            }
-          }
-          if(found)
-          {
-            found = 0;
-          }
-          replace_last_message(prefix);
-        }
-        if(prefix.empty())
-        {
-          first = 0;
-          last  = spell::NUM_SPELLS - 1;
-          found = 0;
-        }
-        break;
-      case ESCAPE:
-        replace_last_message("_ Spell cancelled.");
-        xredraw();
-        return {};
-      case '?':
-        menu_shown = true;
-        break;
-      case '\n':
-        break;
-      default:
-        if(std::isupper(player_input))
-        {
-          player_input = std::tolower(player_input);
-        }
-        if(found)
-        {
-          continue;
-        }
-        int f = first;
-        while(f < spell::NUM_SPELLS &&
-              (!spell::Spells[f].known || spell::spell_names[f].length() < prefix.length() ||
-               spell::spell_names[f][prefix.length()] < player_input))
-        {
-          ++f;
-        }
-        int l = last;
-        while(l >= 0 && (!spell::Spells[l].known || spell::spell_names[l].length() < prefix.length() ||
-                         spell::spell_names[l][prefix.length()] > player_input))
-        {
-          --l;
-        }
-        if(l < f)
-        {
-          continue;
-        }
-        prefix += player_input;
-        replace_last_message(prefix);
-        first = f;
-        last  = l;
-        if(first == last && !found) // unique name
-        {
-          found = 1;
-          replace_last_message(spell::spell_names[first]);
-        }
-        break;
-    }
-  } while(player_input != '\n');
+  int i = rl_choose(std::format("Cast which spell? (mana: {})", Player.mana), items);
   xredraw();
-  if(found)
+  if(i < 0)
   {
-    return static_cast<spell::spell_id>(first);
-  }
-  else
-  {
-    append_message("That is an ambiguous abbreviation!", true);
     return {};
   }
+  return static_cast<spell::spell_id>(index[i]);
 }
 
 // select a spell to cast
 std::optional<spell::spell_id> getspell()
 {
-  queue_message("Cast Spell: [type spell abbrev, ?, or ESCAPE]: ");
   return spellparse();
 }

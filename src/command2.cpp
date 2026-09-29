@@ -142,12 +142,7 @@ void quaff()
 
 void activate()
 {
-  queue_message("Activate -- item [i] or artifact [a] or quit [ESCAPE]?");
-  char response;
-  do
-  {
-    response = (char)mcigetc();
-  } while((response != 'i') && (response != 'a') && (response != ESCAPE));
+  char response = rl_menu("Activate what?", "i:An item|a:An artifact");
   if(response != ESCAPE)
   {
     int slot;
@@ -421,17 +416,7 @@ void talk()
     else
     {
       m = Level->site[Player.x + dx][Player.y + dy].creature;
-      std::vector<std::string> lines;
-      lines.emplace_back(std::format("     Talk to {}:", m->monstring));
-      lines.emplace_back("a: Greet.");
-      lines.emplace_back("b: Threaten.");
-      lines.emplace_back("c: Surrender.");
-      lines.emplace_back("ESCAPE: Clam up.");
-      menu->load(lines);
-      do
-      {
-        response = menu->get_player_input();
-      } while((response != 'a') && (response != 'b') && (response != 'c') && (response != ESCAPE));
+      response = rl_menu(std::format("Talk to {}:", m->monstring), "a:Greet|b:Threaten|c:Surrender");
       switch(response)
       {
         case 'a':

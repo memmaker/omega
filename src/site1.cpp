@@ -48,29 +48,15 @@ void l_bank()
     bool done = false, valid = false;
     while(!done)
     {
-      append_message(std::format("Current Balance: {}Au.", Balance), true);
-      append_message("Enter command (? for help) > ", true);
-      response = mgetc();
-      if(response == '?')
+      response = rl_menu(std::format("First Bank of Omega\nCurrent Balance: {}Au.", Balance),
+                         Password.empty() ? "O:Open an account|X:Exit"
+                         : valid          ? "P:Enter password|D:Deposit|W:Withdraw|X:Exit"
+                                          : "P:Enter password|X:Exit");
+      if(response == ESCAPE)
       {
-        std::vector<std::string> lines;
-        lines.emplace_back("?: This List");
-        if(Password.empty())
-        {
-          lines.emplace_back("O: Open an account");
-        }
-        else
-        {
-          lines.emplace_back("P: Enter password");
-          lines.emplace_back("D: Deposit");
-          lines.emplace_back("W: Withdraw");
-        }
-        lines.emplace_back("X: eXit");
-        menu->load(lines);
-        menu->print();
-        continue;
+        response = 'X';
       }
-      else if(response == 'P' && !Password.empty())
+      if(response == 'P' && !Password.empty())
       {
         append_message("Password: ", true);
         passwd = msgscanstring();
@@ -216,21 +202,14 @@ void l_bank()
 void buyfromstock(int base, int numitems)
 {
 
-  append_message("Purchase which item? [ESCAPE to quit] ", true);
-  std::vector<std::string> lines;
+  std::vector<std::string> items;
   for(int i = 0; i < numitems; ++i)
   {
-    lines.emplace_back(std::format("{}:{}", static_cast<char>(i + 'a'), itemid(&Objects[base + i], 2)));
+    items.push_back(itemid(&Objects[base + i], 2));
   }
-  menu->load(lines);
-  int player_input = ' ';
-  while(player_input != ESCAPE && (player_input < 'a' || player_input >= 'a' + numitems))
+  int i = rl_choose("Purchase which item?", items);
+  if(i >= 0)
   {
-    player_input = menu->get_player_input();
-  }
-  if(player_input != ESCAPE)
-  {
-    int i          = player_input - 'a';
     auto newitem = std::make_unique<object>(Objects[base + i]);
     newitem->known = 2;
     long price     = 2 * true_item_value(newitem.get());
@@ -266,8 +245,7 @@ void l_armorer()
     bool done = false;
     while(!done)
     {
-      queue_message("Julie's: Buy Armor, Weapons, or Leave [a,w,ESCAPE] ");
-      int player_input = mgetc();
+      int player_input = rl_menu("Julie's", "a:Buy Armor|w:Buy Weapons");
       if(player_input == ESCAPE)
       {
         done = true;
@@ -325,11 +303,7 @@ void l_club()
   }
   else
   {
-    append_message("Shop at the club store or listen for rumors [sl] ", true);
-    do
-    {
-      response = (char)mcigetc();
-    } while((response != 's') && (response != 'l') && (response != ESCAPE));
+    response = rl_menu("Rampart Explorers' Club", "s:Shop at the club store|l:Listen for rumors");
     if(response == 'l')
     {
       if(hinthour == hour())
@@ -360,19 +334,6 @@ void l_club()
 void l_gym()
 {
   print_messages();
-  std::vector<std::string> lines = {
-    {"The Rampart Gymnasium"},
-    {""},
-    {""},
-    {"Train for 2000 Au. Choose:"},
-    {""},
-    {"a: work out in the weight room"},
-    {"b: use our gymnastics equipment"},
-    {"c: take our new anaerobics course"},
-    {"d: enroll in dance lessons"},
-    {"ESCAPE: Leave this place"}};
-  menu->load(lines);
-  menu->print();
   append_message("The Rampart Gymnasium", true);
   bool done    = true;
   int trained = 0;
@@ -383,7 +344,8 @@ void l_gym()
       append_message(std::format("-- Credit: {} Au.", Gymcredit));
     }
     done = false;
-    switch(mgetc())
+    switch(rl_menu("Train for 2000 Au. Choose:", "a:work out in the weight room|b:use our gymnastics equipment|"
+                   "c:take our new anaerobics course|d:enroll in dance lessons"))
     {
       case 'a':
         gymtrain(&(Player.maxstr), &(Player.str));
@@ -424,13 +386,7 @@ void l_gym()
 
 void l_healer()
 {
-  std::vector<std::string> lines;
-  lines.emplace_back("     Rampart Healers. Member RMA.");
-  lines.emplace_back("a: Heal injuries (50 crowns).");
-  lines.emplace_back("b: Cure disease (250 crowns).");
-  lines.emplace_back("ESCAPE: Leave these antiseptic alcoves.");
-  menu->load(lines);
-  switch(menu->get_player_input())
+  switch(rl_menu("Rampart Healers. Member RMA.", "a:Heal injuries (50 crowns)|b:Cure disease (250 crowns)"))
   {
     case 'a':
       healforpay();
@@ -571,15 +527,9 @@ void l_casino()
   }
   else
   {
-    std::vector<std::string> lines;
-    lines.emplace_back("     Rampart Mithril Nugget Casino.");
-    lines.emplace_back("a: Drop 100Au in the slots.");
-    lines.emplace_back("b: Risk 1000Au at roulette.");
-    lines.emplace_back("ESCAPE: Leave this green baize hall.");
-    menu->load(lines);
     for(bool done = false; !done;)
     {
-      switch(menu->get_player_input())
+      switch(rl_menu("Rampart Mithril Nugget Casino", "a:Drop 100Au in the slots|b:Risk 1000Au at roulette"))
       {
         case 'a':
           if(Player.cash < 100)
@@ -679,12 +629,7 @@ void l_casino()
           {
             Player.cash -= 1000;
             dataprint();
-            append_message("Red or Black? [rb] ", true);
-            int response;
-            do
-            {
-              response = static_cast<char>(mcigetc());
-            } while((response != 'r') && (response != 'b'));
+            int response = rl_ask("Red or Black?", "r:Red|b:Black");
             int match = (response == 'r' ? 0 : 1);
             append_message("", true);
             int a, b;
@@ -858,21 +803,8 @@ void l_tavern()
   queue_message("The Centaur and Nymph -- J. Riley, prop.");
   if(nighttime())
   {
-    std::vector<std::string> lines = {
-      {"Riley says: Whataya have?"},
-      {""},
-      {"a: Pint of Riley's ultra-dark 1Au"},
-      {"b: Shot of Tullimore Dew 10Au"},
-      {"c: Round for the House. 100Au"},
-      {"d: Bed and Breakfast. 25Au"},
-      {"ESCAPE: Leave this comfortable haven."}};
-    menu->load(lines);
-    menu->print();
-    do
-    {
-      response = (char)mcigetc();
-    } while((response != 'a') && (response != 'b') && (response != 'c') && (response != 'd') &&
-            (response != ESCAPE));
+    response = rl_menu("Riley says: Whataya have?", "a:Pint of Riley's ultra-dark 1Au|b:Shot of Tullimore Dew 10Au|"
+                       "c:Round for the House 100Au|d:Bed and Breakfast 25Au");
     switch(response)
     {
       case 'a':
@@ -1048,16 +980,10 @@ void l_alchemist()
   }
   else
   {
-    std::vector<std::string> lines;
-    lines.emplace_back("     Ambrosias' Potions et cie.");
-    lines.emplace_back("a: Sell monster components.");
-    lines.emplace_back("b: Pay for transformation.");
-    lines.emplace_back("ESCAPE: Leave this place.");
-    menu->load(lines);
     for(bool done = false; !done;)
     {
       int slot;
-      switch(menu->get_player_input())
+      switch(rl_menu("Ambrosias' Potions et cie.", "a:Sell monster components|b:Pay for transformation"))
       {
         case 'a':
           done = true;
@@ -1238,17 +1164,8 @@ void l_library()
           {
             studied = true;
             dataprint();
-            std::vector<std::string> lines = {
-              {"Peruse a scroll:"},
-              {"a: Omegan Theology"},
-              {"b: Guide to Rampart"},
-              {"c: High Magick"},
-              {"d: Odd Uncatalogued Document"},
-              {"e: Attempt Advanced Research"},
-              {"ESCAPE: Leave this font of learning."}};
-            menu->load(lines);
-            menu->print();
-            char response = (char)mcigetc();
+            char response = rl_menu("Peruse a scroll:", "a:Omegan Theology|b:Guide to Rampart|c:High Magick|"
+                                    "d:Odd Uncatalogued Document|e:Attempt Advanced Research");
             if(response == 'a')
             {
               queue_message("You unfurl an ancient, yellowing scroll...", true);
@@ -1366,32 +1283,35 @@ void l_pawn_shop()
     queue_message("Knight's Pawn Shop:");
     while(!done)
     {
-      append_message("Buy item, Sell item, sell Pack contents, Leave [b,s,p,ESCAPE] ", true);
-      std::vector<std::string> lines;
+      std::vector<std::string> lines, items;
+      std::vector<int> keys, index;
       for(int i = 0; i < PAWNITEMS; ++i)
       {
         if(Pawnitems[i])
         {
-          lines.emplace_back(std::format("{}:{}", static_cast<char>(i + 'a'), itemid(Pawnitems[i].get())));
+          lines.emplace_back(itemid(Pawnitems[i].get()));
+          items.push_back(lines.back());
+          keys.push_back('a' + i); // the shop's letter for the shelf
+          index.push_back(i);
         }
       }
       menu->load(lines);
-      int player_input = menu->get_player_input();
+      menu->print();
+      int player_input = rl_menu("Knight's Pawn Shop", "b:Buy an item|s:Sell an item|p:Sell your pack contents");
       if(player_input == ESCAPE)
       {
         done = true;
       }
       else if(player_input == 'b')
       {
-        append_message("Purchase which item? [ESCAPE to quit] ", true);
-        player_input = ' ';
-        while(player_input != ESCAPE && (player_input < 'a' || player_input >= 'a' + PAWNITEMS))
+        int sel = rl_choose_keys("Purchase which item?", items, keys);
+        if(sel < 0 && items.empty())
         {
-          player_input = menu->get_player_input();
+          append_message("There is nothing for sale!", true);
         }
-        if(player_input != ESCAPE)
+        else if(sel >= 0)
         {
-          int i = player_input - 'a';
+          int i = index[sel];
           if(!Pawnitems[i])
           {
             append_message("No such item!", true);

@@ -313,30 +313,9 @@ void examine()
 
 void help()
 {
-  std::vector<std::string> lines = {
-    {"a: Overview"},
-    {"b: Characters"},
-    {"c: Inventories"},
-    {"d: Movement"},
-    {"e: Combat"},
-    {"f: Bugs"},
-    {"g: Magic"},
-    {"h: The Countryside"},
-    {"i: The Screen Display"},
-    {"j: Saving and Restoring"},
-    {"k: Options Settings"},
-    {"l: Dungeon/City/Other Command List"},
-    {"m: Countryside Command List"},
-    {"ESCAPE: Forget the whole thing."},
-    {""},
-    {"Please enter the letter indcating what topic you want help on."}};
-  menu->load(lines);
-  menu->print();
-  char c;
-  do
-  {
-    c = static_cast<char>(mcigetc());
-  } while((c < 'a' || c > 'm') && c != ESCAPE);
+  char c = rl_menu("Help on which topic?", "a:Overview|b:Characters|c:Inventories|d:Movement|e:Combat|f:Bugs|"
+                   "g:Magic|h:The Countryside|i:The Screen Display|j:Saving and Restoring|"
+                   "k:Options Settings|l:Dungeon/City/Other Command List|m:Countryside Command List");
   if(c != ESCAPE)
   {
     displayfile(std::format("{}help{}.txt", Omegalib, c + 1 - 'a'));
@@ -834,14 +813,14 @@ void tacoptions()
     if(draw_again)
     {
       menuclear();
-      menuprint("Enter a combat maneuvers sequence.\n");
-      menuprint("? for help, ! for default, backspace to start again,\n");
-      menuprint(" RETURN to save sequence\n");
+      menuprint("Combat maneuvers sequence:\n");
       showmenu();
       draw_again = false;
     }
-    queue_message("Maneuvers Left: " + std::to_string(actionsleft));
-    switch(mgetc())
+    std::string spec = std::format("a:{}|b:{}|l:Lunge (2 maneuvers)|r:Riposte (2 maneuvers)|!:Default sequence|"
+                                   "\b:Start again|\n:Done, save the sequence|?:Help",
+                                   attack_string(), defense_string());
+    switch(rl_menu(std::format("Combat maneuvers: {} left", actionsleft), spec))
     {
       case '?':
         combat_help();
@@ -941,9 +920,7 @@ void tacoptions()
         break;
       case '!':
         menuclear();
-        menuprint("Enter a combat maneuvers sequence.\n");
-        menuprint("? for help, ! for default, backspace to start again,\n");
-        menuprint(" RETURN to save sequence\n\n");
+        menuprint("Combat maneuvers sequence:\n");
         for(place = 0; place < maneuvers(); ++place)
         {
           if(place & 1)
@@ -964,6 +941,7 @@ void tacoptions()
         actionsleft = 0;
         showmenu();
         Player.meleestr[place * 2] = '\0';
+        place *= 2; // port fix: the end of the sequence, as below (was cut in half)
         break;
       case '\n':
       case '\r':
@@ -1306,7 +1284,6 @@ void city_move()
   }
   else
   {
-    queue_message("Move to which establishment [? for help, ESCAPE to quit]");
     int site = parsecitysite();
     if(site != ABORT)
     {
@@ -1347,11 +1324,7 @@ void frobgamestatus()
 {
   char response;
   long num;
-  queue_message("Set or Reset or Forget it [s,r,ESCAPE]:");
-  do
-  {
-    response = (char)mcigetc();
-  } while((response != 'r') && (response != 's') && (response != ESCAPE));
+  response = rl_menu("Game status flag:", "s:Set|r:Reset");
   if(response != ESCAPE)
   {
     queue_message("Enter log2 of flag:");

@@ -853,16 +853,10 @@ void acquire(int blessing)
   {
     auto newthing = std::make_unique<object>();
     newthing->id  = -1;
-    if(gamestatusp(CHEATED, GameStatus))
-    {
-      queue_message("Acquire which kind of item: !?][}{)/=%\\& ");
-    }
-    else
-    {
-      queue_message("Acquire which kind of item: !?][}{)/=%\\ ");
-    }
     int id     = ABORT;
-    char otype = mgetc();
+    char otype = rl_menu("Acquire which kind of item?", gamestatusp(CHEATED, GameStatus)
+      ? "!:potion|?:scroll|]:armor|[:shield|}:cloak|{:boots|):weapon|/:stick|=:ring|%:food|\\:thing|&:artifact"
+      : "!:potion|?:scroll|]:armor|[:shield|}:cloak|{:boots|):weapon|/:stick|=:ring|%:food|\\:thing");
     switch(otype)
     {
       case(POTION & 0xff):

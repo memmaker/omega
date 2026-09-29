@@ -417,28 +417,8 @@ void outdoors_random_event()
 
 char getlocation()
 {
-  char c = '\0';
-
-  menuprint(" (enter location [HCL]) ");
-  showmenu();
-  while(c == '\0')
-  {
-    switch(c = ((char)mcigetc()))
-    {
-      case 'h':
-        menuprint(" High.");
-        break;
-      case 'c':
-        menuprint(" Center.");
-        break;
-      case 'l':
-        menuprint(" Low.");
-        break;
-      default:
-        c = '\0';
-        break;
-    }
-  }
+  char c = rl_ask("Aim where?", "h:High|c:Center|l:Low");
+  menuprint(c == 'h' ? " High." : c == 'c' ? " Center." : " Low.");
   showmenu();
   return c - 'a' + 'A';
 }
@@ -976,139 +956,27 @@ static int sitenums[] // the order matches sitenames[]
    L_GYM,         L_HEALER,  L_CHARITY,   L_CRAP,      L_LIBRARY, L_MERC_GUILD, L_MONASTERY,
    L_ORACLE,      L_ORDER,   L_PAWN_SHOP, L_SORCERORS, L_TAVERN,  L_TEMPLE,     L_THIEVES_GUILD};
 
-std::vector<std::string> known_sites(int first, int last)
+int parsecitysite()
 {
-  std::vector<std::string> lines;
-  bool printed = false;
-  for(int i = first; i <= last; ++i)
+  // port: the known sites as a choice menu (the prefix typing is gone)
+  std::vector<std::string> items;
+  std::vector<int> index;
+  for(int i = 0; i < NUMCITYSITES; ++i)
   {
     if(CitySiteList[sitenums[i] - CITYSITEBASE][0])
     {
-      printed = true;
-      lines.emplace_back(std::format("  {}", sitenames[i]));
+      items.push_back(sitenames[i]);
+      index.push_back(i);
     }
   }
-  if(!printed)
+  if(items.empty())
   {
-    lines.emplace_back("No known sites match that prefix!");
-  }
-  return lines;
-}
-
-int parsecitysite()
-{
-  std::string prefix;
-  bool found          = false;
-  int first           = 0;
-  int last            = NUMCITYSITES - 1;
-  bool menu_displayed = false;
-  int player_input;
-  append_message("", true);
-  do
-  {
-    if(menu_displayed)
-    {
-      menu->load(known_sites(first, last), {"Possible Sites -"});
-      player_input = menu->get_player_input();
-    }
-    else
-    {
-      player_input = mgetc();
-    }
-    switch(player_input)
-    {
-      case KEY_BACKSPACE:
-      case DELETE:
-      case KEY_DC:
-      case '\b':
-        if(!prefix.empty())
-        {
-          prefix.pop_back();
-          for(int f = first; f >= 0 && sitenames[f].starts_with(prefix); --f)
-          {
-            if(CitySiteList[sitenums[f] - CITYSITEBASE][0])
-            {
-              first = f;
-            }
-          }
-          for(int l = last; l < NUMCITYSITES && sitenames[l].starts_with(prefix); ++l)
-          {
-            if(CitySiteList[sitenums[l] - CITYSITEBASE][0])
-            {
-              last = l;
-            }
-          }
-          if(found)
-          {
-            found = false;
-          }
-          replace_last_message(prefix);
-        }
-        if(prefix.empty())
-        {
-          first = 0;
-          last  = NUMCITYSITES - 1;
-          found = false;
-        }
-        break;
-      case ESCAPE:
-        replace_last_message("_ Move cancelled.");
-        xredraw();
-        return ABORT;
-      case '?':
-        menu_displayed = true;
-        break;
-      case '\n':
-        break;
-      default:
-        if(std::isupper(player_input))
-        {
-          player_input = std::tolower(player_input);
-        }
-        if(found)
-        {
-          continue;
-        }
-        int f = first;
-        while(f < NUMCITYSITES &&
-              (!CitySiteList[sitenums[f] - CITYSITEBASE][0] || sitenames[f].length() < prefix.length() ||
-               sitenames[f][prefix.length()] < player_input))
-        {
-          ++f;
-        }
-        int l = last;
-        while(l >= 0 &&
-              (!CitySiteList[sitenums[l] - CITYSITEBASE][0] || sitenames[l].length() < prefix.length() ||
-               sitenames[l][prefix.length()] > player_input))
-        {
-          --l;
-        }
-        if(l < f)
-        {
-          continue;
-        }
-        prefix.push_back(player_input);
-        replace_last_message(prefix);
-        first = f;
-        last  = l;
-        if(first == last && !found)
-        { // unique name
-          found = true;
-          replace_last_message(sitenames[first]);
-        }
-        break;
-    }
-  } while(player_input != '\n');
-  xredraw();
-  if(found)
-  {
-    return sitenums[first] - CITYSITEBASE;
-  }
-  else
-  {
-    append_message("That is an ambiguous abbreviation!", true);
+    queue_message("You don't know any sites yet!");
     return ABORT;
   }
+  int i = rl_choose("Move to which establishment?", items);
+  xredraw();
+  return i < 0 ? ABORT : sitenums[index[i]] - CITYSITEBASE;
 }
 
 // are there hostile monsters within 2 moves?

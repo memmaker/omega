@@ -725,13 +725,7 @@ void p_drown()
         case 0:
           p_death("drowning");
       }
-      std::vector<std::string> lines = {
-        {"a: Drop an item."},
-        {"b: Bash an item."},
-        {"c: Drop your whole pack."}};
-      menu->load(lines);
-      menu->print();
-      switch(menugetc())
+      switch(rl_menu("You are drowning!", "a:Drop an item|b:Bash an item|c:Drop your whole pack"))
       {
         case 'a':
           drop_equipped_item();

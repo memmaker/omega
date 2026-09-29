@@ -570,11 +570,7 @@ void l_altar()
       {
         queue_message("You have a sense of immanence.");
       }
-      queue_message("Request a Blessing, Sacrifice an item, or just Pray [b,s,p] ");
-      do
-      {
-        response = (char)mcigetc();
-      } while((response != 'b') && (response != 's') && (response != 'p') && (response != ESCAPE));
+      response = rl_menu("At the altar:", "b:Request a Blessing|s:Sacrifice an item|p:Just pray");
       if(response == 'b')
       {
         queue_message("You beg a heavenly benefice.");

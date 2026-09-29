@@ -267,12 +267,7 @@ std::fstream check_fstream_open(const std::string &file_path, std::ios::openmode
   while(!file)
   {
     queue_message("Warning! Error opening file: " + file_path);
-    queue_message(" Abort or Retry? [ar] ");
-    char response;
-    do
-    {
-      response = static_cast<char>(mcigetc());
-    } while(response != 'a' && response != 'r');
+    char response = rl_ask("Error opening file.", "r:Retry|a:Abort");
     if(response == 'r')
     {
       file.open(file_path);
@@ -296,11 +291,7 @@ FILE *checkfopen(const std::string &filestring, const std::string &optionstring)
   while(!fd)
   {
     queue_message("Warning! Error opening file: " + filestring);
-    queue_message(" Abort or Retry? [ar] ");
-    do
-    {
-      response = static_cast<char>(mcigetc());
-    } while((response != 'a') && (response != 'r'));
+    response = rl_ask("Error opening file.", "r:Retry|a:Abort");
     if(response == 'r')
     {
       fd = fopen(filestring.c_str(), optionstring.c_str());

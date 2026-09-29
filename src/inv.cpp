@@ -590,6 +590,19 @@ char index_to_key(signed int index)
 // if itype is any other object type (eg SCROLL, POTION, etc.), only
 // that type of item is acceptable or is listed
 
+// port: a cursor on the slots (arrows, 8/2, j/k); Enter, 5, space or + opens
+// the item menu (rl_item_menu): use the item, or put it in / take from the pack
+static void highlight_slot(int slot)
+{
+  extern WINDOW *menu_window;
+  for(int x = 0; x < getmaxx(menu_window); ++x)
+  {
+    chtype c = mvwinch(menu_window, slot - 1, x);
+    mvwaddch(menu_window, slot - 1, x, (c & ~A_COLOR) | A_REVERSE);
+  }
+  wnoutrefresh(menu_window);
+}
+
 int getitem(chtype itype)
 {
   std::string invstr;
@@ -622,9 +635,29 @@ int getitem(chtype itype)
     queue_message(",?] ");
     bool drewmenu = false;
     char key;
+    // port: the fitting items are shown with a cursor: 8/2 or arrows move, 5 or Enter picks
+    std::string keys = invstr;
+    std::erase(keys, '$');
+    size_t cur = 0;
     for(bool ok = false; !ok;)
     {
-      key = (char)mcigetc();
+      if(!keys.empty())
+      {
+        drewmenu = true;
+        print_inventory_menu(itype);
+        highlight_slot(key_to_index(keys[cur]));
+      }
+      int k = mcigetc();
+      if(!keys.empty() && (k == KEY_DOWN || k == '2' || k == KEY_UP || k == '8'))
+      {
+        cur = (cur + (k == KEY_DOWN || k == '2' ? 1 : keys.size() - 1)) % keys.size();
+        continue;
+      }
+      if(!keys.empty() && (k == '\n' || k == '\r' || k == KEY_ENTER || k == '5'))
+      {
+        k = keys[cur];
+      }
+      key = (char)k;
       if(key == '?')
       {
         drewmenu = true;
@@ -892,61 +925,6 @@ void use_pack_item(size_t response, int slot)
 
 // WDT HACK!  This ought to be in scr.c, along with its companion.  However,
 // right now it's only used in the function directly below.
-size_t aux_display_pack(size_t start_item, int slot)
-{
-  size_t i = Player.pack.size() - start_item;
-  if(Player.pack.empty())
-  {
-    queue_message("Pack is empty.");
-  }
-  else if(Player.pack.size() <= start_item)
-  {
-    queue_message("You see the leather at the bottom of the pack.");
-  }
-  else
-  {
-    menuclear();
-    int items = 0;
-    while(i-- > 0  && items < ScreenLength - 5)
-    {
-      if(aux_slottable(Player.pack[i].get(), slot))
-      {
-        std::string depth_string;
-        if(pack_item_cost(i) > 10)
-        {
-          depth_string = "**";
-        }
-        else if(pack_item_cost(i) > 5)
-        {
-          depth_string = "* ";
-        }
-        else
-        {
-          depth_string = "  ";
-        }
-        if(items == 0)
-        {
-          menuprint("Items in Pack:\n");
-        }
-        menuprint(
-          std::format("  {}: {} {}\n", static_cast<char>('a' + Player.pack.size() - 1 - i), depth_string, itemid(Player.pack[i].get()))
-        );
-        ++items;
-      }
-    }
-    if(items == 0)
-    {
-      menuprint("You see nothing useful for that slot in the pack.");
-    }
-    else
-    {
-      menuprint("\n*: Takes some time to reach; **: buried very deeply.");
-    }
-    showmenu();
-  }
-  return Player.pack.size() - 1 - i;
-}
-
 // takes something from pack, puts to slot
 void take_from_pack(int slot)
 {
@@ -956,69 +934,39 @@ void take_from_pack(int slot)
   }
   else
   {
-    int response;
-    size_t pack_item = 0;
-    bool quit = false, ok;
-    do
+    // port: the pack items that fit this slot, as a choice menu (the pack's letters)
+    std::vector<std::string> items;
+    std::vector<int> keys;
+    std::vector<size_t> index;
+    for(size_t i = Player.pack.size(); i-- > 0;)
     {
-      ok        = true;
-      size_t last_item = aux_display_pack(pack_item, slot);
-      if(last_item == Player.pack.size() && pack_item == 0)
+      if(aux_slottable(Player.pack[i].get(), slot))
       {
-        queue_message("Enter pack slot letter or ESCAPE to quit.");
+        std::string depth = pack_item_cost(i) > 10 ? "** " : pack_item_cost(i) > 5 ? "*  " : "   ";
+        items.push_back(depth + itemid(Player.pack[i].get()));
+        keys.push_back('a' + static_cast<int>(Player.pack.size() - 1 - i));
+        index.push_back(i);
       }
-      else if(last_item == Player.pack.size())
+    }
+    if(items.empty())
+    {
+      queue_message("You see nothing useful for that slot in the pack.");
+    }
+    else
+    {
+      for(int sel = 0;;)
       {
-        queue_message("Enter pack slot letter, - to go back, or ESCAPE to quit.");
-      }
-      else if(pack_item == 0)
-      {
-        queue_message("Enter pack slot letter, + to see more, or ESCAPE to quit.");
-      }
-      else
-      {
-        queue_message("Enter pack slot letter, + or - to see more, or ESCAPE to quit.");
-      }
-      response = mcigetc();
-      if(response == '?')
-      {
-        // WDT HACK -- display some help instead.
-        queue_message("Help not implemented (sorry).");
-        ok = false;
-      }
-      else if(response == ESCAPE)
-      {
-        quit = true;
-      }
-      else if(response == '+')
-      {
-        if(last_item < Player.pack.size())
+        sel = rl_choose_keys("Take which item from your pack?\n(*: takes some time to reach; **: buried very deeply)", items, keys, sel);
+        if(sel < 0)
         {
-          pack_item = last_item;
+          break;
         }
-        ok = false;
-      }
-      else if(response == '-')
-      {
-        // WDT HACK: this _should_ make us page up.  Sadly,
-        // I have no way of calculating how much I'll be paging up.
-        // This is fixable, but I have no idea how much work...
-        pack_item = 0;
-        ok        = false;
-      }
-      else
-      {
-        size_t pack_index = response - 'a';
-        ok = response >= 'a' && response <= 'z' && pack_index < Player.pack.size();
-        if(ok)
+        if(slottable(Player.pack[index[sel]].get(), slot))
         {
-          ok = slottable(Player.pack[Player.pack.size() - 1 - pack_index].get(), slot);
+          use_pack_item(index[sel], slot);
+          break;
         }
       }
-    } while(!ok);
-    if(!quit)
-    {
-      use_pack_item(Player.pack.size() - 1 - (response - 'a'), slot);
     }
   }
   print_inventory_menu();
@@ -1091,10 +1039,33 @@ void put_to_pack(int slot)
 
 void do_inventory_control()
 {
+  static int cur = 1;
   print_inventory_menu();
   for(bool done = false; !done;)
   {
+    highlight_slot(cur);
     int response = mcigetc();
+    if(response == KEY_DOWN || response == '2' || response == 'j')
+    {
+      cur = cur % (MAXITEMS - 1) + 1;
+      print_inventory_menu();
+      continue;
+    }
+    if(response == KEY_UP || response == '8' || response == 'k')
+    {
+      cur = (cur + MAXITEMS - 3) % (MAXITEMS - 1) + 1;
+      print_inventory_menu();
+      continue;
+    }
+    if(response == '\n' || response == '\r' || response == KEY_ENTER || response == '5' || response == ' ' || response == '+')
+    {
+      response = rl_item_menu(cur);
+      print_inventory_menu();
+      if(response == 0)
+      {
+        break; // a game command was queued
+      }
+    }
     switch(response)
     {
       case 12:
@@ -1108,6 +1079,7 @@ void do_inventory_control()
         if(key_to_index(response) > 0)
         {
           int slot = key_to_index(response);
+          cur      = slot;
           if(!Player.possessions[slot])
           {
             if(slot == O_READY_HAND && is_two_handed(Player.possessions[O_WEAPON_HAND].get()))
