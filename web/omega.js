@@ -331,9 +331,10 @@
 			/* until 2026-09 omega kept its save in the '/save' database it shared with roguepc */
 			RvipApp.mount(function (err) {
 				if (err) status('Could not read saved games from IndexedDB (' + err + '). Saving may not work in this browser mode.', true);
-				if (hasSave()) Module.arguments.push('omega.sav');
-				var who = askName(30, /[,\n]/g);   /* Player.name = getlogin() (LOGNAME) unless rolled */
-				if (who) Module.ENV.LOGNAME = who;
+				/* rebirth saves to OMEGALIB saves/<user>/<name>.sav: keep them in IndexedDB */
+				try { FS.mkdirTree(DIR + '/saves'); FS.mkdirTree('/omegalib'); FS.symlink(DIR + '/saves', '/omegalib/saves'); } catch (e) { console.warn(e); }
+				var who = askName(30, /[,\n\/]/g);   /* Player.name = get_username() (USER), also the saves/ folder */
+				if (who) Module.ENV.LOGNAME = Module.ENV.USER = who;
 				try { tilesOn = Module.FS.readFile(DIR + '/web-tiles', { encoding: 'utf8' }) !== 'None'; renderTilesBtn(); } catch (e) { }
 				Module.removeRunDependency('idbfs');
 			}, { dir: '/save', files: ['omega.sav'] });

@@ -1,16 +1,11 @@
 /* Browser frontend for the curses shim (RVIP step 7): web/omega.js draws
- * the text screen (Module.om); input waits with Asyncify. omega.sav is an
- * autosave while playing (written at the command prompt when the page asks),
- * and removed when the game ends unless the player saved with S. */
+ * the text screen (Module.om); input waits with Asyncify. Saves: OMEGALIB's
+ * saves/ links into the IndexedDB folder (web/omega.js), synced while playing. */
 #include <emscripten.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include "curses.h"
-#include "../glob.h"
-
-extern int Rl_at_prompt, Rl_saved;
-void rl_autosave(void);
 
 EM_JS(void, js_init, (int c, int r), { Module.om.init(c, r); });
 EM_JS(void, js_put, (int y, int x, int ch), { Module.om.put(y, x, ch); });
@@ -19,33 +14,15 @@ EM_JS(void, js_flush, (void), { Module.om.flush(); });
 EM_JS(int, js_key, (int at_cmd), { return Module.om.key(at_cmd); });
 EM_JS(int, js_want_save, (void), { return Module.om.wantSave(); });
 EM_JS(void, js_end, (int saved), { Module.om.end(saved); });
-/* Run report (roguelikes-index/server/CONTRACT.md): fire-and-forget GET,
-   never throws, offline just fails silently. Negative ints are omitted. */
-EM_JS(void, js_beacon, (const char *g, const char *ev, const char *name, const char *killer, int depth, int score, int turns, int lvl), {
-    try {
-        var p = [['g', UTF8ToString(g)], ['ev', UTF8ToString(ev)], ['name', name ? UTF8ToString(name) : ''],
-                 ['killer', killer ? UTF8ToString(killer) : ''], ['depth', depth], ['score', score], ['turns', turns], ['lvl', lvl]];
-        var q = p.filter(function (a) { return a[1] !== '' && !(a[1] < 0); })
-                 .map(function (a) { return a[0] + '=' + encodeURIComponent(a[1]); }).join('&');
-        if (window.RvipWM && RvipWM.report) RvipWM.report(q); else fetch('/roguelikes/beacon?' + q, { keepalive: true, mode: 'no-cors' }).catch(function () {});
-    } catch (e) {}
-});
-/* scr.c display_death/win/quit/bigwin; score as checkhigh() counts it */
-void be_run_end(const char *ev, const char *k)
-{
-    if (k && !strncmp(k, "a ", 2)) k += 2;
-    else if (k && !strncmp(k, "an ", 3)) k += 3;
-    else if (k && !strncasecmp(k, "the ", 4)) k += 4;
-    js_beacon("omega", ev, Player.name, k, Level ? Level->depth : -1,
-              FixedPoints > 0 ? FixedPoints : calc_points(), Time, Player.level);
-}
+/* ponytail: stage 2 of the rebirth port. The run report (js_beacon), the
+ * Inventory/Visible lists and the autosave come back with rl.c in stage 3. */
 
 /* exit() (build.sh: -Dexit=wc_exit): Emscripten runs no atexit handlers, so
  * end the page here and idle; the player reloads (ponytail: the wasm stays up) */
 void wc_exit(int code)
 {
-    if (!Rl_saved) unlink("omega.sav");     /* died or quit: the game is over */
-    js_end(Rl_saved);
+    (void)code;
+    js_end(0);
     for (;;) emscripten_sleep(1000);
 }
 
@@ -57,47 +34,7 @@ EM_JS(void, be_pput, (int p, int y, int x, chtype ch), { Module.om.pput(p, y, x,
 EM_JS(void, be_hero, (int y, int x), { Module.om.hero(y, x); });
 EM_JS(void, be_popup, (int on), { Module.om.popup(on); });
 EM_JS(void, be_msg, (const char *s, int append), { Module.om.msg(UTF8ToString(s), append); });
-/* Inventory and Visible windows (rvip-wm.js): lines
- * "<colour>\t<glyph>\t<text>\t<tile>" for the inventory;
- * "M<glyph><name>\t<colour>\t<tile>" / "I<glyph><name>\t<colour>\t<tile>"
- * for what the player sees (colours: PC palette indexes, omega.js maps them;
- * tile: slot in web/tiles.png from wc_tile(), -1 none; omega.js shows the
- * icon in tile mode, the glyph in text mode) */
-EM_JS(void, js_lists, (const char *inv, const char *vis), { Module.om.lists(UTF8ToString(inv), UTF8ToString(vis)); });
-int wc_tile(int c);
-#define TILE(c) (wc_tile(c) - 1)
-static void send_lists(void)
-{
-    static char inv[8192], vis[8192];
-    char *p = inv, *e;
-    int i, x, y;
-    pml ml;
-    pol ol;
-
-    *p = 0;
-    for (i = 0; i < MAXITEMS; i++)
-        if (Player.possessions[i])
-            p += sprintf(p, "%d\t%c\t%-14.14s %.60s\t%d\n", Player.possessions[i]->objchar >> 8 & 15, Player.possessions[i]->objchar & 0xff,
-                         slotstr(i), itemid(Player.possessions[i]), TILE(Player.possessions[i]->objchar));
-    for (i = 0; i < Player.packptr && i < MAXPACK; i++)
-        if (Player.pack[i])
-            p += sprintf(p, "%d\t%c\tpack %c)        %.60s\t%d\n", Player.pack[i]->objchar >> 8 & 15, Player.pack[i]->objchar & 0xff,
-                         'a' + i, itemid(Player.pack[i]), TILE(Player.pack[i]->objchar));
-    p = vis; e = vis + sizeof vis - 200; *p = 0;
-    if (Level && Current_Environment != E_COUNTRYSIDE && !Player.status[BLINDED]) {
-        for (ml = Level->mlist; ml && p < e; ml = ml->next)
-            if (ml->m->hp > 0 && view_los_p(Player.x, Player.y, ml->m->x, ml->m->y)
-                && (Player.status[TRUESIGHT] || !m_statusp(ml->m, M_INVISIBLE)))
-                p += sprintf(p, "M%c%.60s\t%d\t%d\n", ml->m->monchar & 0xff, ml->m->monstring, ml->m->monchar >> 8 & 15, TILE(ml->m->monchar));
-        for (x = 0; x < WIDTH && x < MAXWIDTH; x++)
-            for (y = 0; y < LENGTH && y < MAXLENGTH && p < e; y++)
-                if (Level->site[x][y].things && view_los_p(Player.x, Player.y, x, y))
-                    for (ol = Level->site[x][y].things; ol && p < e; ol = ol->next)
-                        p += sprintf(p, "I%c%.80s\t%d\t%d\n", ol->thing->objchar & 0xff, itemid(ol->thing), ol->thing->objchar >> 8 & 15, TILE(ol->thing->objchar));
-    }
-    js_lists(inv, vis);
-}
-void be_flush(void) { if (Player.maxhp > 0) send_lists(); js_flush(); }
+void be_flush(void) { js_flush(); }
 void be_sleep(int ms) { emscripten_sleep(ms); }
 void be_end(void) { }
 
@@ -105,12 +42,8 @@ int be_getkey(int wait)
 {
     int k;
     for (;;) {
-        if (Rl_at_prompt && js_want_save()) {
-            Rl_at_prompt = 0;               /* the save redraws nothing, but be safe */
-            rl_autosave();
-            Rl_at_prompt = 1;
-        }
-        if ((k = js_key(Rl_at_prompt)) >= 0) return k;
+        js_want_save();             /* persists IDBFS (saves/) at most every 2 s */
+        if ((k = js_key(1)) >= 0) return k;
         if (!wait) {                /* polling (explore): paint each step */
             emscripten_sleep(40);
             return -1;
