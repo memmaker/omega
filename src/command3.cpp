@@ -756,7 +756,7 @@ void vault()
       {
         if(!Level->site[Player.x][Player.y].things.empty() && optionp(PICKUP, Player))
         {
-          pickup();
+          auto_pickup();
         }
       }
     }

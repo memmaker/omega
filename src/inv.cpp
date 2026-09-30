@@ -22,12 +22,17 @@ Omega. If not, see <https://www.gnu.org/licenses/>.
 #include "glob.h"
 #include "scr.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <format>
 #include <span>
 #include <string>
 #include <vector>
+
+int objequal(const object *, const object *);
+int pack_item_cost(size_t);
+bool merge_item_with_pack(const object *);
 
 // returns some money from player back into "money" item.
 // for giving and dropping money
@@ -101,21 +106,60 @@ void pickup_at(int x, int y)
   }
   else
   {
+    // port: one checklist for the pile; Enter with nothing marked takes the highlighted item
+    std::vector<std::string> names;
+    for(auto &item : items)
+    {
+      names.push_back(itemid(item.get()));
+    }
+    std::vector<bool> marks(items.size());
+    int sel = rl_choose_keys("Pick up what? (a key or Space marks, ',' all, Enter takes)", names, {}, 0, &marks);
+    if(sel < 0)
+    {
+      setgamestatus(SKIP_MONSTERS, GameStatus);
+      return;
+    }
+    if(std::find(marks.begin(), marks.end(), true) == marks.end())
+    {
+      marks[sel] = true;
+    }
     for(auto i = items.size(); i-- > 0;)
     {
-      std::unique_ptr<object> &item = items[i];
-      queue_message(std::format("Pick up: {} [ynq] ", itemid(item.get())));
-      char player_input = ynq();
-      if(player_input == 'y')
+      if(marks[i])
       {
-        std::unique_ptr<object> tmp = std::move(item);
+        std::unique_ptr<object> tmp = std::move(items[i]);
         items.erase(items.begin() + i);
         gain_item(std::move(tmp));
       }
-      else if(player_input == 'q')
-      {
-        break;
-      }
+    }
+  }
+}
+
+// port: auto-pickup (PICKUP option) takes only money and items that stack with carried ones
+void auto_pickup()
+{
+  if(Player.status[SHADOWFORM])
+  {
+    return;
+  }
+  std::vector<std::unique_ptr<object>> &items = Level->site[Player.x][Player.y].things;
+  for(auto i = items.size(); i-- > 0;)
+  {
+    const object *o = items[i].get();
+    bool stacks     = o->objchar == CASH;
+    for(auto &p : Player.pack)
+    {
+      stacks = stacks || (o->objchar != STICK && objequal(o, p.get()));
+    }
+    for(auto &p : Player.possessions)
+    {
+      stacks = stacks || (o->objchar != STICK && objequal(o, p.get()));
+    }
+    if(stacks)
+    {
+      std::unique_ptr<object> tmp = std::move(items[i]);
+      items.erase(items.begin() + i);
+      gain_item(std::move(tmp));
     }
   }
 }
@@ -567,7 +611,7 @@ int key_to_index(signed char key)
       return (signed char)i;
     }
   }
-  return O_UP_IN_AIR;
+  return -1;
 }
 
 char index_to_key(signed int index)
@@ -590,121 +634,103 @@ char index_to_key(signed int index)
 // if itype is any other object type (eg SCROLL, POTION, etc.), only
 // that type of item is acceptable or is listed
 
-// port: a cursor on the slots (arrows, 8/2, j/k); Enter, 5, space or + opens
-// the item menu (rl_item_menu): use the item, or put it in / take from the pack
-static void highlight_slot(int slot)
+// port: the slots and then the pack in one list (rl_choose_keys). Slots have
+// their inventory letters, pack items the upper-case pack letter (A = top of
+// the pack). A pack item is taken out for the command: it waits in slot 0
+// (O_UP_IN_AIR, unused since rebirth) and rl_return_held() puts what is left
+// back after the command; reaching into the pack costs pack_item_cost().
+int Rl_rummage;
+static size_t held_at;
+
+static int pack_key(size_t i)
 {
-  extern WINDOW *menu_window;
-  for(int x = 0; x < getmaxx(menu_window); ++x)
+  return 'A' + static_cast<int>(Player.pack.size() - 1 - i);
+}
+
+static std::string pack_line(size_t i)
+{
+  int cost = pack_item_cost(i);
+  return std::format("pack {:<9} {}", cost > 10 ? "**" : cost > 5 ? "*" : "", itemid(Player.pack[i].get()));
+}
+
+void rl_return_held()
+{
+  std::unique_ptr<object> &o = Player.possessions[O_UP_IN_AIR];
+  if(!o || merge_item_with_pack(o.get()))
   {
-    chtype c = mvwinch(menu_window, slot - 1, x);
-    mvwaddch(menu_window, slot - 1, x, (c & ~A_COLOR) | A_REVERSE);
+    o.reset();
+    return;
   }
-  wnoutrefresh(menu_window);
+  if(Player.pack.size() >= MAXPACK)
+  {
+    queue_message("Your pack is full. The item drops to the ground.");
+    drop_at(Player.x, Player.y, std::move(o));
+    return;
+  }
+  Player.pack.insert(Player.pack.begin() + std::min(held_at, Player.pack.size()), std::move(o));
+}
+
+static int hold_pack_item(size_t i)
+{
+  rl_return_held();
+  int cost = pack_item_cost(i);
+  if(cost > 5)
+  {
+    queue_message("You rummage through your pack for the item.");
+  }
+  Rl_rummage += cost;
+  held_at                          = i;
+  Player.possessions[O_UP_IN_AIR] = std::move(Player.pack[i]);
+  Player.pack.erase(Player.pack.begin() + i);
+  return O_UP_IN_AIR;
 }
 
 int getitem(chtype itype)
 {
-  std::string invstr;
-  bool found = itype == NULL_ITEM || (itype == CASH && Player.cash > 0);
+  auto fits = [itype](const object *o) {
+    return o && (itype == NULL_ITEM || itype == CASH || o->objchar == itype || (itype == FOOD && o->objchar == CORPSE));
+  };
+  std::vector<std::string> names;
+  std::vector<int> keys, refs;
+  if(itype == CASH && Player.cash > 0)
+  {
+    names.push_back(std::format("{:<14} {} in cash", "", Player.cash));
+    keys.push_back('$');
+    refs.push_back(CASHVALUE);
+  }
   for(int i = 1; i < MAXITEMS; ++i)
   {
-    if(Player.possessions[i])
+    if(fits(Player.possessions[i].get()))
     {
-      if(itype == NULL_ITEM || itype == CASH || Player.possessions[i]->objchar == itype ||
-         (itype == FOOD && Player.possessions[i]->objchar == CORPSE))
-      {
-        found       = true;
-        invstr += index_to_key(i);
-      }
+      names.push_back(std::format("{:<14} {}", rl_slot_name(i), itemid(Player.possessions[i].get())));
+      keys.push_back(index_to_key(i));
+      refs.push_back(i);
     }
   }
-  if(itype == CASH && found)
+  for(size_t i = Player.pack.size(); i-- > 0;)
   {
-    invstr += '$';
+    if(fits(Player.pack[i].get()))
+    {
+      names.push_back(pack_line(i));
+      keys.push_back(pack_key(i));
+      refs.push_back(MAXITEMS + static_cast<int>(i));
+    }
   }
-  if(!found)
+  if(names.empty())
   {
     queue_message("Nothing appropriate.");
     return ABORT;
   }
-  else
+  int sel = rl_choose_keys("Select an item (*: takes a while to find in the pack)", names, keys);
+  if(sel < 0)
   {
-    queue_message("Select an item [");
-    queue_message(invstr);
-    queue_message(",?] ");
-    bool drewmenu = false;
-    char key;
-    // port: the fitting items are shown with a cursor: 8/2 or arrows move, 5 or Enter picks
-    std::string keys = invstr;
-    std::erase(keys, '$');
-    size_t cur = 0;
-    for(bool ok = false; !ok;)
-    {
-      if(!keys.empty())
-      {
-        drewmenu = true;
-        print_inventory_menu(itype);
-        highlight_slot(key_to_index(keys[cur]));
-      }
-      int k = mcigetc();
-      if(!keys.empty() && (k == KEY_DOWN || k == '2' || k == KEY_UP || k == '8'))
-      {
-        cur = (cur + (k == KEY_DOWN || k == '2' ? 1 : keys.size() - 1)) % keys.size();
-        continue;
-      }
-      if(!keys.empty() && (k == '\n' || k == '\r' || k == KEY_ENTER || k == '5'))
-      {
-        k = keys[cur];
-      }
-      key = (char)k;
-      if(key == '?')
-      {
-        drewmenu = true;
-        print_inventory_menu(itype);
-      }
-      else if(key == ESCAPE)
-      {
-        ok = true;
-      }
-      else if(key == (CASH & 0xff))
-      {
-        if(itype == CASH)
-        {
-          ok = true;
-        }
-        else
-        {
-          queue_message("You cannot select cash now.");
-          ok = false;
-        }
-      }
-      else if(!invstr.contains(key) || key_to_index(key) == -1)
-      {
-        queue_message("Nope! Try again [? for inventory, ESCAPE to quit]:");
-      }
-      else
-      {
-        ok = true;
-      }
-    }
-    if(drewmenu)
-    {
-      xredraw();
-    }
-    if(key == ESCAPE)
-    {
-      return ABORT;
-    }
-    else if(key == (CASH & 0xff))
-    {
-      return CASHVALUE;
-    }
-    else
-    {
-      return key_to_index(key);
-    }
+    return ABORT;
   }
+  if(refs[sel] >= MAXITEMS)
+  {
+    return hold_pack_item(refs[sel] - MAXITEMS);
+  }
+  return refs[sel];
 }
 
 bool merge_item_with_pack(const object *o)
@@ -726,7 +752,7 @@ bool merge_item_with_pack(const object *o)
 
 bool merge_item_with_inventory(const object *o)
 {
-  if(!o && o->objchar == STICK)
+  if(!o || o->objchar == STICK)
   {
     return false;
   }
@@ -969,140 +995,202 @@ void take_from_pack(int slot)
       }
     }
   }
-  print_inventory_menu();
 }
 
-// returns some number between 0 and o->number
-int get_item_number(const object *o)
+// port: take a slot's item back to the pack (W); false if it is cursed
+static bool unequip_slot(int slot)
 {
-  int n = 0;
-  if(o->number == 1)
+  std::unique_ptr<object> &o = Player.possessions[slot];
+  if(!o)
   {
-    return 1;
+    return true;
   }
-  do
-  {
-    queue_message(std::format("How many? -- max {}:", o->number));
-    n = (int)parsenum();
-    if(n > o->number)
-    {
-      queue_message("Too many!");
-    }
-    else if(n < 1)
-    {
-      n = 0;
-    }
-  } while(n > o->number);
-  if(n < 1)
-  {
-    n = 0;
-  }
-  return n;
-}
-
-void put_to_pack(int slot)
-{
-  std::unique_ptr<object> &inventory_item = Player.possessions[slot];
-  if(!inventory_item)
-  {
-    queue_message("Slot is empty!");
-  }
-  else if(inventory_item->blessing < 0 && inventory_item->used)
+  if(o->blessing < 0 && o->used)
   {
     queue_message("Item is cursed!");
+    return false;
   }
-  else
+  queue_message(std::format("You take off {}.", itemid(o.get())));
+  conform_unused_object(o);
+  add_to_pack(std::move(o));
+  Command_Duration += 2;
+  calc_melee();
+  return true;
+}
+
+// port: put pack item i into the slot its type takes (w): armour, shield,
+// boots, cloak to theirs, a ring to the first free finger, a weapon to the
+// weapon hand, anything else to the first free hand, belt or shoulder
+static void equip_pack_item(size_t i)
+{
+  const object *o = Player.pack[i].get();
+  std::vector<int> slots;
+  switch(o->objchar)
   {
-    int num = get_item_number(inventory_item.get());
-    if(num >= inventory_item->number)
+    case ARMOR:
+      slots = {O_ARMOR};
+      break;
+    case SHIELD:
+      slots = {O_SHIELD};
+      break;
+    case BOOTS:
+      slots = {O_BOOTS};
+      break;
+    case CLOAK:
+      slots = {O_CLOAK};
+      break;
+    case RING:
+      slots = {O_RING1, O_RING2, O_RING3, O_RING4};
+      break;
+    case WEAPON:
+    case MISSILEWEAPON:
+      slots = {O_WEAPON_HAND};
+      break;
+    default:
+      slots = {O_READY_HAND, O_BELT1, O_BELT2, O_BELT3, O_LEFT_SHOULDER, O_RIGHT_SHOULDER};
+      break;
+  }
+  int slot = slots[0];
+  for(int s : slots)
+  {
+    if(!Player.possessions[s])
     {
-      if(is_two_handed(Player.possessions[O_WEAPON_HAND].get()) &&
-        (slot == O_READY_HAND && !Player.possessions[O_READY_HAND]))
+      slot = s;
+      break;
+    }
+  }
+  // make room: the slot's item (and for a two-handed weapon the ready hand) go to the pack
+  std::unique_ptr<object> &old = Player.possessions[slot];
+  if(old && old->blessing < 0 && old->used)
+  {
+    queue_message("Item is cursed!");
+    return;
+  }
+  if(is_two_handed(o) && !unequip_slot(O_READY_HAND))
+  {
+    return;
+  }
+  std::unique_ptr<object> keep;
+  if(old)
+  {
+    conform_unused_object(old);
+    keep = std::move(old);
+  }
+  use_pack_item(i, slot);
+  Command_Duration += 5;
+  if(keep)
+  {
+    queue_message(std::format("You put {} in your pack.", itemid(keep.get())));
+    add_to_pack(std::move(keep));
+  }
+  calc_melee();
+}
+
+void equip_item()
+{
+  std::vector<std::string> names;
+  std::vector<int> keys;
+  std::vector<size_t> index;
+  for(size_t i = Player.pack.size(); i-- > 0;)
+  {
+    names.push_back(pack_line(i));
+    keys.push_back(pack_key(i));
+    index.push_back(i);
+  }
+  if(names.empty())
+  {
+    queue_message("Your pack is empty.");
+  }
+  int sel = names.empty() ? -1 : rl_choose_keys("Equip which item?", names, keys);
+  if(sel < 0)
+  {
+    setgamestatus(SKIP_MONSTERS, GameStatus);
+    return;
+  }
+  equip_pack_item(index[sel]);
+}
+
+void unequip_item()
+{
+  std::vector<std::string> names;
+  std::vector<int> keys, slots;
+  for(int i = 1; i < MAXITEMS; ++i)
+  {
+    if(Player.possessions[i])
+    {
+      names.push_back(std::format("{:<14} {}", rl_slot_name(i), itemid(Player.possessions[i].get())));
+      keys.push_back(index_to_key(i));
+      slots.push_back(i);
+    }
+  }
+  if(names.empty())
+  {
+    queue_message("You have nothing equipped.");
+  }
+  int sel = names.empty() ? -1 : rl_choose_keys("Take off which item?", names, keys);
+  if(sel < 0 || !unequip_slot(slots[sel]))
+  {
+    setgamestatus(SKIP_MONSTERS, GameStatus);
+  }
+}
+
+// port: one list, the slots and then the pack; a key or Enter opens the item
+// menu (rl_item_menu). Its use commands (quaff, drop ...) leave the list, run,
+// and reopen it (Rl_reopen).
+void do_inventory_control()
+{
+  static int sel = 0;
+  for(;;)
+  {
+    std::vector<std::string> names;
+    std::vector<int> keys, refs;
+    for(int i = 1; i < MAXITEMS; ++i)
+    {
+      object *o = Player.possessions[i].get();
+      names.push_back(std::format("{:<14} {}", rl_slot_name(i), o ? itemid(o) : ""));
+      keys.push_back(index_to_key(i));
+      refs.push_back(i);
+    }
+    for(size_t i = Player.pack.size(); i-- > 0;)
+    {
+      names.push_back(pack_line(i));
+      keys.push_back(pack_key(i));
+      refs.push_back(MAXITEMS + static_cast<int>(i));
+    }
+    sel = rl_choose_keys(std::format("Inventory (pack {}/{}): a key or Enter for actions", Player.pack.size(), MAXPACK),
+                         names, keys, sel);
+    if(sel < 0)
+    {
+      sel = 0;
+      break;
+    }
+    int ref = refs[sel];
+    int act = rl_item_menu(ref);
+    if(act == 0)
+    {
+      break; // a game command was queued
+    }
+    if(act == 'w')
+    {
+      equip_pack_item(ref - MAXITEMS);
+    }
+    else if(act == 'W')
+    {
+      unequip_slot(ref);
+    }
+    else if(act == 'p')
+    {
+      if(ref == O_READY_HAND && is_two_handed(Player.possessions[O_WEAPON_HAND].get()))
       {
-        conform_unused_object(Player.possessions[O_WEAPON_HAND]);
-        add_to_pack(std::move(Player.possessions[O_WEAPON_HAND]));
+        unequip_slot(O_WEAPON_HAND);
       }
       else
       {
-        conform_unused_object(inventory_item);
-        add_to_pack(std::move(inventory_item));
+        take_from_pack(ref);
+        Command_Duration += 5;
       }
-    }
-    else if(num > 0)
-    {
-      std::unique_ptr<object> o = split_item(num, inventory_item.get());
-      add_to_pack(std::move(o));
-      dispose_lost_objects(num, slot);
-    }
-  }
-}
-
-void do_inventory_control()
-{
-  static int cur = 1;
-  print_inventory_menu();
-  for(bool done = false; !done;)
-  {
-    highlight_slot(cur);
-    int response = mcigetc();
-    if(response == KEY_DOWN || response == '2' || response == 'j')
-    {
-      cur = cur % (MAXITEMS - 1) + 1;
-      print_inventory_menu();
-      continue;
-    }
-    if(response == KEY_UP || response == '8' || response == 'k')
-    {
-      cur = (cur + MAXITEMS - 3) % (MAXITEMS - 1) + 1;
-      print_inventory_menu();
-      continue;
-    }
-    if(response == '\n' || response == '\r' || response == KEY_ENTER || response == '5' || response == ' ' || response == '+')
-    {
-      response = rl_item_menu(cur);
-      print_inventory_menu();
-      if(response == 0)
-      {
-        break; // a game command was queued
-      }
-    }
-    switch(response)
-    {
-      case 12:
-      case 18: // ^l, ^r
-        print_inventory_menu();
-        break;
-      case ESCAPE:
-        done = true;
-        break;
-      default:
-        if(key_to_index(response) > 0)
-        {
-          int slot = key_to_index(response);
-          cur      = slot;
-          if(!Player.possessions[slot])
-          {
-            if(slot == O_READY_HAND && is_two_handed(Player.possessions[O_WEAPON_HAND].get()))
-            {
-              put_to_pack(O_WEAPON_HAND);
-              Command_Duration += 2;
-            }
-            else
-            {
-              take_from_pack(slot);
-              Command_Duration += 5;
-            }
-          }
-          else
-          {
-            put_to_pack(slot);
-            Command_Duration += 2;
-          }
-          print_inventory_menu();
-        }
     }
     calc_melee();
-    print_inventory_menu();
   }
   xredraw();
 }

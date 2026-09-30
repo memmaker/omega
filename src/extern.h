@@ -35,12 +35,21 @@ int rl_auto();
 int rl_command(int);
 int rl_item_menu(int);
 int rl_choose(const std::string &, const std::vector<std::string> &, int = 0);
-int rl_choose_keys(const std::string &, const std::vector<std::string> &, const std::vector<int> &, int = 0);
+int rl_choose_keys(const std::string &, const std::vector<std::string> &, const std::vector<int> &, int = 0,
+                   std::vector<bool> * = nullptr);
 int rl_menu(const std::string &, const std::string &);
 int rl_ask(const std::string &, const std::string &);
 void rl_run_end(const char *, const std::string &);
 void rl_messages();
 extern int Rl_at_prompt, Rl_saved, Rl_reopen;
+const char *rl_slot_name(int);
+
+// inv.cpp port additions: pack items picked in getitem(), w / W, auto-pickup
+extern int Rl_rummage;
+void rl_return_held();
+void equip_item();
+void unequip_item();
+void auto_pickup();
 
 // omega.cpp functions
 void init_world();
@@ -132,7 +141,6 @@ void closedoor();
 void disarm();
 void downstairs();
 void drop_equipped_item();
-void drop_pack_item();
 void eat();
 void give();
 void magic();

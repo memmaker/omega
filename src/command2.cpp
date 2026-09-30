@@ -30,7 +30,6 @@ Omega. If not, see <https://www.gnu.org/licenses/>.
 #include <filesystem>
 #include <format>
 #include <iostream>
-#include <list>
 #include <string>
 #include <thread>
 #include <utility>
@@ -108,8 +107,10 @@ void peruse()
       else
       {
         queue_message("You carefully unfurl the scroll....");
-        item_use(o);
+        // port: one is used up first, so the item's own prompts (identify ...) can take pack items
+        std::unique_ptr<object> one = split_item(1, o.get());
         dispose_lost_objects(1, slot);
+        item_use(one);
       }
     }
   }
@@ -134,8 +135,10 @@ void quaff()
     else
     {
       queue_message("You drink it down.... ");
-      item_use(o);
+      // port: one is used up first, so the item's own prompts (identify ...) can take pack items
+      std::unique_ptr<object> one = split_item(1, o.get());
       dispose_lost_objects(1, slot);
+      item_use(one);
     }
   }
 }
@@ -241,115 +244,6 @@ void pickup()
   {
     pickup_at(Player.x, Player.y);
   }
-}
-
-void drop_pack_item()
-{
-  if(Player.pack.empty() && Player.cash <= 0)
-  {
-    queue_message("You have nothing to drop.");
-    return;
-  }
-  std::list<std::pair<object *, char>> food;
-  std::list<std::pair<object *, char>> weapons;
-  std::list<std::pair<object *, char>> scrolls;
-  std::list<std::pair<object *, char>> potions;
-  std::list<std::pair<object *, char>> armor;
-  std::list<std::pair<object *, char>> sticks;
-  std::list<std::pair<object *, char>> jewelery;
-  std::list<std::pair<object *, char>> artifacts;
-  std::list<std::pair<object *, char>> other;
-  const std::array object_categories{
-    std::pair{"|YFood|w",          &food     },
-    std::pair{"|YWeapons|w",       &weapons  },
-    std::pair{"|YScrolls|w",       &scrolls  },
-    std::pair{"|YPotions|w",       &potions  },
-    std::pair{"|YArmor|w",         &armor    },
-    std::pair{"|YSticks|w",        &sticks   },
-    std::pair{"|YJewelery|w",      &jewelery },
-    std::pair{"|YArtifacts|w",     &artifacts},
-    std::pair{"|YMiscellaneous|w", &other    }
-  };
-  for(size_t i = 0; i < Player.pack.size(); ++i)
-  {
-    char pack_letter = 'a' + static_cast<char>(Player.pack.size() - 1 - i);
-    object *pack_item = Player.pack[i].get();
-    switch(pack_item->objchar)
-    {
-      case FOOD:
-        food.emplace_back(std::make_pair(pack_item, pack_letter));
-        break;
-      case WEAPON:
-      case MISSILEWEAPON:
-        weapons.emplace_back(std::make_pair(pack_item, pack_letter));
-        break;
-      case SCROLL:
-        scrolls.emplace_back(std::make_pair(pack_item, pack_letter));
-        break;
-      case POTION:
-        potions.emplace_back(std::make_pair(pack_item, pack_letter));
-        break;
-      case ARMOR:
-      case SHIELD:
-      case CLOAK:
-      case BOOTS:
-        armor.emplace_back(std::make_pair(pack_item, pack_letter));
-        break;
-      case STICK:
-        sticks.emplace_back(std::make_pair(pack_item, pack_letter));
-        break;
-      case RING:
-        jewelery.emplace_back(std::make_pair(pack_item, pack_letter));
-        break;
-      case ARTIFACT:
-        artifacts.emplace_back(std::make_pair(pack_item, pack_letter));
-        break;
-      case THING:
-      default:
-        other.emplace_back(std::make_pair(pack_item, pack_letter));
-        break;
-    }
-  }
-  std::vector<std::string> lines;
-  if(Player.cash > 0)
-  {
-    lines.emplace_back("|YCash|w");
-    lines.emplace_back(std::format("   $ - {} gold pieces", Player.cash));
-  }
-  for(auto &object_category : object_categories)
-  {
-    if(!object_category.second->empty())
-    {
-      lines.emplace_back(object_category.first);
-      for(auto item : *object_category.second)
-      {
-        lines.emplace_back(std::format("   {} - {}", item.second, itemid(item.first)));
-      }
-    }
-  }
-  menu->load(lines, {"|WDrop Item:|w", ""});
-
-  int player_input;
-  size_t pack_index;
-  do
-  {
-    player_input = menu->get_player_input();
-    if(player_input == ESCAPE)
-    {
-      return;
-    }
-    else if(player_input == '$' && Player.cash > 0)
-    {
-      drop_money();
-      calc_melee();
-      return;
-    }
-    pack_index = Player.pack.size() - 1 - (player_input - 'a');
-  } while(player_input < 'a' || player_input > 'z' || pack_index > Player.pack.size() - 1);
-  object *item = Player.pack[pack_index].get();
-  p_drop_at(Player.x, Player.y, item->number, item);
-  Player.pack.erase(Player.pack.begin() + pack_index);
-  calc_melee();
 }
 
 void drop_equipped_item()
@@ -1396,7 +1290,7 @@ void moveplayer(int dx, int dy)
         }
         if(!Level->site[Player.x][Player.y].things.empty() && optionp(PICKUP, Player))
         {
-          pickup();
+          auto_pickup();
         }
       }
     }

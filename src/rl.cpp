@@ -312,8 +312,10 @@ static int lower(int c)
 // player presses a key, or moves with the arrows / 8 2 (9 3 a page) and takes
 // the entry with Enter, space or 5. A key that is also a movement key
 // (digits) wins over the movement. title may have several lines. Returns the
-// index, -1 on ESCAPE.
-int rl_choose_keys(const std::string &title, const std::vector<std::string> &items, const std::vector<int> &keys, int sel)
+// index, -1 on ESCAPE. With marks it is a checklist: a key or space marks an
+// entry, ',' marks all (or none), Enter ends.
+int rl_choose_keys(const std::string &title, const std::vector<std::string> &items, const std::vector<int> &keys, int sel,
+                   std::vector<bool> *marks)
 {
   int n = std::min(static_cast<int>(items.size()), 128);
   if(n <= 0)
@@ -361,7 +363,7 @@ int rl_choose_keys(const std::string &title, const std::vector<std::string> &ite
   }
   for(int i = 0; i < n; ++i)
   {
-    w = std::max(w, static_cast<int>(items[i].size()) + lw + 2);
+    w = std::max(w, static_cast<int>(items[i].size()) + lw + (marks ? 4 : 2));
   }
   w      = std::min(w, COLS - 4);
   int nt = static_cast<int>(tl.size());
@@ -376,7 +378,8 @@ int rl_choose_keys(const std::string &title, const std::vector<std::string> &ite
   WINDOW *save = dupwin(curscr);
   WINDOW *win  = newwin(h + ty + 2, w + 4, y0, x0);
   int top      = 0;
-  std::string hint = must ? " key or arrows + Enter " : " key or arrows + Enter, Esc ";
+  std::string hint = marks ? " key/Space mark, ',' all, Enter, Esc "
+                     : must ? " key or arrows + Enter " : " key or arrows + Enter, Esc ";
   for(;;)
   {
     if(sel < top)
@@ -413,7 +416,8 @@ int rl_choose_keys(const std::string &title, const std::vector<std::string> &ite
       {
         wstandout(win);
       }
-      std::string text = items[e].substr(0, w - lw - 2);
+      std::string text = (marks ? ((*marks)[e] ? "+ " : "- ") : "") + items[e];
+      text             = text.substr(0, w - lw - 2);
       std::string line = k[e] ? std::format("{:>{}}) {:<{}}", key_label(k[e]), lw, text, w - lw - 2)
                               : std::format("{:>{}}  {:<{}}", "", lw, text, w - lw - 2);
       mvwaddstr(win, ty + i + 1, 2, line.c_str());
@@ -447,7 +451,20 @@ int rl_choose_keys(const std::string &title, const std::vector<std::string> &ite
     if(i < n && c != '\n' && c != '\r' && c != KEY_ENTER)
     {
       sel = i;
-      break;
+      if(!marks)
+      {
+        break;
+      }
+      (*marks)[i] = !(*marks)[i];
+    }
+    else if(marks && (c == ' ' || c == '5'))
+    {
+      (*marks)[sel] = !(*marks)[sel];
+    }
+    else if(marks && c == ',')
+    {
+      bool all = std::find(marks->begin(), marks->end(), false) == marks->end();
+      std::fill(marks->begin(), marks->end(), !all);
     }
     if(c == KEY_DOWN || c == '2')
     {
@@ -608,18 +625,28 @@ int rl_command(int c)
   return c;
 }
 
-// The item menu of the inventory (Enter on a slot): every action that fits,
-// with its usual key. Returns the inventory key of the slot (put in pack /
-// take from pack), ESCAPE, or 0 when it queued a game command (eat, quaff
-// ...) with the slot's key: the caller leaves the inventory, the command runs
-// with its own prompts, then the inventory reopens.
-int rl_item_menu(int slot)
+const char *rl_slot_name(int slot)
 {
-  object *o = Player.possessions[slot].get();
-  char key  = index_to_key(slot);
+  static const char *names[MAXITEMS] = {"", "ready hand", "weapon hand", "left shoulder", "right shoulder", "belt",
+    "belt", "belt", "shield", "armor", "boots", "cloak", "finger", "finger", "finger", "finger"};
+  return slot > 0 && slot < MAXITEMS ? names[slot] : "";
+}
+
+// The item menu of the inventory: every action that fits, with its usual
+// key. ref is a slot, or MAXITEMS + a pack index. Returns 'p' (empty slot:
+// take from the pack), 'w' (equip the pack item), 'W' (take it off), ESCAPE,
+// or 0 when it queued a game command (quaff, drop ...) with the item's
+// getitem() key: the caller leaves the inventory, the command runs with its
+// own prompts, then the inventory reopens.
+int rl_item_menu(int ref)
+{
+  bool pack = ref >= MAXITEMS;
+  size_t pi = pack ? ref - MAXITEMS : 0;
+  object *o = pack ? Player.pack[pi].get() : Player.possessions[ref].get();
+  int key   = pack ? 'A' + static_cast<int>(Player.pack.size() - 1 - pi) : index_to_key(ref);
   if(!o)
   {
-    return key; // empty: take from the pack
+    return 'p';
   }
   std::vector<std::string> names, cmds;
   std::vector<int> keys;
@@ -657,8 +684,9 @@ int rl_item_menu(int slot)
   {
     item("fire/throw", 'f', "f");
   }
+  item(pack ? "equip" : "take off (to the pack)", pack ? 'w' : 'W', nullptr);
+  item("drop", 'd', "d");
   item("call it something", 'C', "C");
-  item("put in pack", 'p', nullptr);
   int sel = rl_choose_keys(itemid(o), names, keys, 0);
   if(sel < 0)
   {
@@ -666,9 +694,9 @@ int rl_item_menu(int slot)
   }
   if(cmds[sel].empty())
   {
-    return key;
+    return keys[sel];
   }
-  push_keys(cmds[sel] + key); // getitem()'s key for this slot
+  push_keys(cmds[sel] + static_cast<char>(key)); // getitem()'s key for this item
   Rl_reopen = 2;
   return 0;
 }
@@ -820,9 +848,6 @@ extern "C" int rl_game_end()
 // web/tiles.png, -1 none)
 extern "C" void rl_send_lists()
 {
-  static const char *names[MAXITEMS] = {"up in air", "ready hand", "weapon hand", "left shoulder",
-    "right shoulder", "belt", "belt", "belt", "shield", "armor", "boots", "cloak", "finger", "finger",
-    "finger", "finger"};
   static std::string last_inv, last_vis;
   if(Player.maxhp <= 0 || !Level)
   {
@@ -830,19 +855,19 @@ extern "C" void rl_send_lists()
   }
   std::string inv, vis;
   auto glyph = [](chtype c) { return std::string(1, static_cast<char>(c & 0xff)); };
-  for(int i = 0; i < MAXITEMS; ++i)
+  for(int i = 1; i < MAXITEMS; ++i)
   {
     if(object *o = Player.possessions[i].get())
     {
       inv += std::format("{}\t{}\t{} {:<14.14} {:.60}\t{}\n", wc_colour_of(o->objchar), glyph(o->objchar),
-                         index_to_key(i), names[i], itemid(o), wc_tile_of(o->objchar) - 1);
+                         index_to_key(i), rl_slot_name(i), itemid(o), wc_tile_of(o->objchar) - 1);
     }
   }
   for(size_t i = Player.pack.size(); i-- > 0;)
   {
     object *o = Player.pack[i].get();
     inv += std::format("{}\t{}\tpack {}) {:>9} {:.60}\t{}\n", wc_colour_of(o->objchar), glyph(o->objchar),
-                       static_cast<char>('a' + Player.pack.size() - 1 - i), "", itemid(o), wc_tile_of(o->objchar) - 1);
+                       static_cast<char>('A' + Player.pack.size() - 1 - i), "", itemid(o), wc_tile_of(o->objchar) - 1);
   }
   if(Current_Environment != E_COUNTRYSIDE && !Player.status[BLINDED])
   {

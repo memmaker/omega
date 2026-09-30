@@ -127,7 +127,6 @@ void plotchar(chtype, int, int);
 void plotmon(monster *);
 void plotspot(int, int, int);
 void print_combat_stats();
-void print_inventory_menu(chtype = NULL_ITEM);
 void print_messages();
 void putspot(int, int, chtype);
 void queue_message(const std::string &message, bool force_break = false);

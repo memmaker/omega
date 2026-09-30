@@ -118,7 +118,7 @@ void p_process()
         Command_Duration = Player.speed * 2 / 5;
         break;
       case 'd':
-        drop_pack_item();
+        drop_equipped_item();
         Command_Duration = Player.speed;
         break;
       case 'e':
@@ -163,6 +163,12 @@ void p_process()
       case 't':
         talk();
         Command_Duration = 10;
+        break;
+      case 'w':
+        equip_item();
+        break;
+      case 'W':
+        unequip_item();
         break;
       case 'v':
         vault();
@@ -368,6 +374,9 @@ void p_process()
         setgamestatus(SKIP_MONSTERS, GameStatus);
         break;
     }
+    Command_Duration += Rl_rummage; // port: reaching into the pack
+    Rl_rummage = 0;
+    rl_return_held();
   }
   if(Current_Environment != E_COUNTRYSIDE)
   {
@@ -424,7 +433,13 @@ void p_country_process()
         }
         break; // ^x
       case 'd':
-        drop_pack_item();
+        drop_equipped_item();
+        break;
+      case 'w':
+        equip_item();
+        break;
+      case 'W':
+        unequip_item();
         break;
       case 'e':
         eat();
@@ -517,5 +532,7 @@ void p_country_process()
         break;
     }
   } while(no_op);
+  Rl_rummage = 0; // port: a pack item taken out goes back
+  rl_return_held();
   screencheck(Player.x, Player.y);
 }
