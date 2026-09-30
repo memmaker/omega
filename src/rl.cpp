@@ -692,6 +692,53 @@ void rl_mark_command()
   cmd_mark = message_total();
 }
 
+// a history line without color_waddstr's markup (|x = colour x, || = |)
+static std::string plain(const std::string &s)
+{
+  std::string p;
+  for(size_t j = 0; j < s.size(); ++j)
+  {
+    if(s[j] == '|' && j + 1 < s.size())
+    {
+      if(s[++j] == '|')
+      {
+        p += '|';
+      }
+    }
+    else
+    {
+      p += s[j];
+    }
+  }
+  return p;
+}
+
+// a line to the log (append 2 = replace the last one). rebirth folds repeats
+// within a batch itself ("text x3"); repeats of the line above are folded
+// here with that count as "text (x5)", not "text x3 (x2)" (RvipWM.log's own)
+static void log_line(const std::string &raw, int append)
+{
+  static std::string fbase;
+  static int fcount;
+  std::string s = plain(raw), base = s;
+  int n = 1;
+  size_t k = s.rfind(" x");
+  if(k != std::string::npos && k + 2 < s.size() && s.find_first_not_of("0123456789", k + 2) == std::string::npos)
+  {
+    base = s.substr(0, k);
+    n    = std::stoi(s.substr(k + 2));
+  }
+  if(append != 2 && !fbase.empty() && base == fbase)
+  {
+    fcount += n;
+    be_msg(std::format("{} (x{})", base, fcount).c_str(), 2);
+    return;
+  }
+  fbase  = base;
+  fcount = n;
+  be_msg(s.c_str(), append);
+}
+
 // the message history goes to the log window (new lines; the last one again
 // when it grew or changed), the lines since the last command to the prompt line
 void rl_messages()
@@ -709,33 +756,18 @@ void rl_messages()
   if(sent > base && sent - 1 < total && h[sent - 1 - base] != last)
   {
     last = h[sent - 1 - base];
-    be_msg(last.c_str(), 2);
+    log_line(last, 2);
   }
   for(; sent < total; ++sent)
   {
     last = h[sent - base];
-    be_msg(last.c_str(), replace ? 2 : 0);
+    log_line(last, replace ? 2 : 0);
     replace = false;
   }
   std::string p;
   for(size_t i = std::max({cmd_mark, base, total > 3 ? total - 3 : 0}); i < total; ++i)
   {
-    // the markup of color_waddstr: |x = colour x, || = |
-    const std::string &s = h[i - base];
-    for(size_t j = 0; j < s.size(); ++j)
-    {
-      if(s[j] == '|' && j + 1 < s.size())
-      {
-        if(s[++j] == '|')
-        {
-          p += '|';
-        }
-      }
-      else
-      {
-        p += s[j];
-      }
-    }
+    p += plain(h[i - base]);
     p += '\n';
   }
   be_prompt(p.c_str());

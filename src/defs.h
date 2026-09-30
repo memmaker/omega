@@ -30,6 +30,23 @@ Omega. If not, see <https://www.gnu.org/licenses/>.
 #include <memory>
 #include <string>
 #include <forward_list>
+#include <chrono>
+#include <thread>
+
+// Pauses (casino reels, bank alarm, ...). In the browser (port/be_web.c) the
+// screen is drawn and the page runs during the pause instead of a busy wait.
+#ifdef __EMSCRIPTEN__
+extern "C" void wc_sleep_ms(int ms);
+template <class D> inline void omega_sleep(D d)
+{
+  wc_sleep_ms(static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(d).count()));
+}
+#else
+template <class D> inline void omega_sleep(D d)
+{
+  std::this_thread::sleep_for(d);
+}
+#endif
 
 //--------------------------USER DEFINITIONS--------------------------
 

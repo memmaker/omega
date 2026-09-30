@@ -4,7 +4,8 @@
  * PC fg << 8 | PC bg << 12 (the MSDOS COL_ values). The symbolic entries
  * (WALL, FLOOR ...) are rebirth's curses pairs: wc_fold() turns them into
  * the same PC colours the screen shows; the raw COL_ entries are PC values
- * already (marked with RAW). Returns row*128+col+1, 0 = none. */
+ * already (marked with RAW). Returns row*128+col+1, 0 = none (text).
+ * Wc_tileset 2: the gromega sheet, row*32+col+1. */
 #include "../src/glob.h"
 
 #define RAW 0x40000000
@@ -36,11 +37,69 @@ static short tile[0x8000];
 
 extern "C" chtype wc_fold(chtype);
 
+/* the second set: gromega 0.80.2a's omegalib/omegatiles.xpm (8x12 cells, 32
+ * a row, code = row*32+col; web/gromega.png is the sheet without its grid).
+ * gromega gives each monster and terrain piece its own code (its ochars.h);
+ * here, as for WinOmega, only the screen cell is known: monsters by name ->
+ * their char/colour (port/gromega.inc, made from its minit.h + ochars.h by
+ * a regex over ",C_xxx,\"name\"" lines), terrain and item classes by hand,
+ * no wall/river joining. Set from the page (be_web.c): 0 text, 1 WinOmega,
+ * 2 gromega. */
+extern "C" int Wc_tileset;
+int Wc_tileset = 1;
+static const struct { const char *name; int code; } gmon[] = {
+#include "gromega.inc"
+};
+static const unsigned gloc[][2] = {
+  {WALL, 0xd0}, {PORTCULLIS, 0x142}, {OPEN_DOOR, 0x145}, {CLOSED_DOOR, 0x144},
+  {WHIRLWIND, 0x13e}, {ABYSS, 0xff}, {LAVA, 0x137}, {HEDGE, 0x100}, {WATER, 0xa0},
+  {FIRE, 0x13d}, {TRAP, 0x1f5}, {LIFT, 0x13c}, {STAIRS_UP, 0x139}, {STAIRS_DOWN, 0x138},
+  {FLOOR, 0x146}, {PLAYER, 0x200}, {CORPSE, 0x208}, {STATUE, 0x13b}, {RUBBLE, 0xcf},
+  {ALTAR, 0x136}, {CASH, 0x1f9}, {PILE, 0x208}, {FOOD, 0x221}, {WEAPON, 0x1e1},
+  {MISSILEWEAPON, 0x1ef}, {SCROLL, 0x1dc}, {POTION, 0x1de}, {ARMOR, 0x1fe},
+  {SHIELD, 0x1df}, {CLOAK, 0x1e0}, {BOOTS, 0x1fd}, {STICK, 0x1f6}, {RING, 0x1f3},
+  {THING, 0x1ff}, {ARTIFACT, 0x20f}, {PLAINS, 0x3b0}, {TUNDRA, 0x3b0},
+  {MOUNTAINS, 0x240}, {PASS, 0x450}, {CITY, 0x4c8}, {VILLAGE, 0x4c9}, {FOREST, 0x370},
+  {JUNGLE, 0x4e0}, {SWAMP, 0x340}, {VOLCANO, 0x4d9}, {CASTLE, 0x4d6}, {TEMPLE, 0x4d2},
+  {CAVES, 0x4d8}, {DESERT, 0x368}, {CHAOS_SEA, 0x4a0}, {STARPEAK, 0x4d7},
+  {DRAGONLAIR, 0x4da}, {MAGIC_ISLE, 0x4db}, {CHAIR, 0x148}, {SAFE, 0x13a},
+  {FURNITURE, 0x148}, {BED, 0x148},
+};
+static short gtile[0x8000];
+static int gro_tile(int c)
+{
+  static bool built;
+  if(!built)
+  {
+    for(const auto &m : Monsters)
+    {
+      for(const auto &g : gmon)
+      {
+        int k = wc_fold(m.monchar) & 0x7fff;
+        if(m.monstring == g.name && !gtile[k])
+        {
+          gtile[k] = g.code + 1; // the first monster of a glyph wins
+        }
+      }
+    }
+    for(const auto &l : gloc)
+    {
+      gtile[wc_fold(l[0]) & 0x7fff] = l[1] + 1;
+    }
+    built = true;
+  }
+  return gtile[c];
+}
+
 /* c: a screen cell (already folded) */
 extern "C" int wc_tile(int c)
 {
   static bool built;
   c &= 0x7fff;
+  if(Wc_tileset == 2)
+  {
+    return gro_tile(c);
+  }
   if(!built)
   {
     for(const auto &m : map)

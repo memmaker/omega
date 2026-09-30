@@ -87,37 +87,37 @@ void l_bank()
             menu->load(lines);
             menu->print();
             doupdate();
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+            omega_sleep(std::chrono::seconds(2));
             lines.emplace_back("^@^@^@^@^@00AD1203BC0F0000FFFFFFFFFFFF");
             lines.emplace_back("Interrupt in _get_space. Illegal Character.");
             menu->load(lines);
             menu->print();
             doupdate();
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+            omega_sleep(std::chrono::seconds(2));
             lines.emplace_back("Aborting _police_alert.....");
             lines.emplace_back("Attempting reboot.....");
             menu->load(lines);
             menu->print();
             doupdate();
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+            omega_sleep(std::chrono::seconds(2));
             lines.emplace_back("Warning: Illegal shmop at _count_cash.");
             lines.emplace_back("Warning: Command Buffer NOT CLEARED");
             menu->load(lines);
             menu->print();
             doupdate();
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+            omega_sleep(std::chrono::seconds(2));
             lines.emplace_back("Reboot Complete. Execution Continuing.");
             lines.emplace_back("Withdrawing: 4294967297 Au.");
             lines.emplace_back("Warning: Arithmetic Overflow in _withdraw");
             menu->load(lines);
             menu->print();
             doupdate();
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+            omega_sleep(std::chrono::seconds(2));
             lines.emplace_back("Yo mama. Core dumped.");
             menu->load(lines);
             menu->print();
             doupdate();
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+            omega_sleep(std::chrono::seconds(2));
             queue_message("The cash machine begins to spew gold pieces!");
             queue_message("You pick up your entire balance and then some!");
             Player.cash += Balance + 1000 + random_range(3000);
@@ -552,11 +552,11 @@ void l_casino()
               doupdate();
               if(i == 19)
               {
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                omega_sleep(std::chrono::seconds(1));
               }
               else
               {
-                std::this_thread::sleep_for(std::chrono::milliseconds(250));
+                omega_sleep(std::chrono::milliseconds(250));
               }
               a = random_range(10);
               b = random_range(10);
@@ -638,11 +638,11 @@ void l_casino()
               doupdate();
               if(i == 19)
               {
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                omega_sleep(std::chrono::seconds(1));
               }
               else
               {
-                std::this_thread::sleep_for(std::chrono::milliseconds(250));
+                omega_sleep(std::chrono::milliseconds(250));
               }
               a = random_range(37);
               b = a % 2;

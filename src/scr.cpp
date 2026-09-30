@@ -1840,13 +1840,13 @@ void draw_explosion(chtype pyx, int x, int y)
       plotchar(pyx, x + Dirs[0][i], y + Dirs[1][i]);
     }
     doupdate();
-    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    omega_sleep(std::chrono::milliseconds(150));
     for(int i = 0; i < 9; ++i)
     {
       plotchar(SPACE, x + Dirs[0][i], y + Dirs[1][i]);
     }
     doupdate();
-    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    omega_sleep(std::chrono::milliseconds(150));
   }
   for(int i = 0; i < 9; ++i)
   {
@@ -2250,7 +2250,7 @@ void drawomega()
     printw("\n                       *   ***                ***   *");
     printw("\n                        ****                    ****");
     refresh();
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    omega_sleep(std::chrono::milliseconds(200));
     move(1, 1);
     enable_attr(stdscr, CHARATTR(CLR(CYAN)));
     printw("\n\n\n");
@@ -2268,7 +2268,7 @@ void drawomega()
     printw("\n                       +   +++                +++   +");
     printw("\n                        ++++                    ++++");
     refresh();
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    omega_sleep(std::chrono::milliseconds(200));
     move(1, 1);
     enable_attr(stdscr, CHARATTR(CLR(BLUE)));
     printw("\n\n\n");
@@ -2286,7 +2286,7 @@ void drawomega()
     printw("\n                       .   ...                ...   .");
     printw("\n                        ....                    ....");
     refresh();
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    omega_sleep(std::chrono::milliseconds(200));
   }
   wattrset(stdscr, CHARATTR(CLR(WHITE)));
 }

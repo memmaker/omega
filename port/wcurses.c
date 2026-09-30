@@ -230,24 +230,6 @@ void wc_pane(WINDOW *w, int p)
     be_pane(p, y, x, P[p].r, P[p].c);
 }
 
-/* append: 1 = run-on text for the last line. A repeat of the last message
-   becomes "message (xN)", replacing the page's last line (append = 2). */
-void wc_msg(const char *s, int append)
-{
-    static char prev[512];
-    static int reps;
-    char fold[560];
-    if (append) { prev[0] = 0; be_msg(s, 1); return; }
-    if (*prev && !strcmp(s, prev)) {
-        snprintf(fold, sizeof fold, "%s (x%d)", s, ++reps);
-        be_msg(fold, 2);
-        return;
-    }
-    snprintf(prev, sizeof prev, "%s", s);
-    reps = 1;
-    be_msg(s, 0);
-}
-
 int wnoutrefresh(WINDOW *w)
 {
     int y, x;
@@ -271,6 +253,22 @@ int wnoutrefresh(WINDOW *w)
     w->dirty = 0;
     cury = w->cury + w->begy; curx = w->curx + w->begx;
     return OK;
+}
+
+/* tile bits of every map cell from the current set (bits below 18 = the cell) */
+void wc_retile(void)
+{
+    int i, p;
+    for (i = 0; i < LINES * COLS; i++)
+        if (curscr->c[i] & A_TILE) curscr->c[i] = (curscr->c[i] & 0x3ffff) | (chtype)wc_tile(curscr->c[i]) << 18;
+    for (p = WC_MAP; p < WC_PANES; p++)
+        for (i = 0; P[p].shown && i < P[p].r * P[p].c; i++) {
+            chtype v = P[p].shown[i];
+            if (v == (chtype)-1 || !(v & A_TILE)) continue;
+            v = (v & 0x3ffff) | (chtype)wc_tile(v) << 18;
+            if (v != P[p].shown[i]) { P[p].shown[i] = v; be_pput(p, i / P[p].c, i % P[p].c, v); }
+        }
+    doupdate();
 }
 
 int doupdate(void)

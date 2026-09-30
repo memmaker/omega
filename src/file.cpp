@@ -446,7 +446,7 @@ void lock_score_file()
       }
       else
       {
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        omega_sleep(std::chrono::seconds(2));
       }
     }
   } while(!lock.is_open());

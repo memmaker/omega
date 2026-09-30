@@ -42,6 +42,8 @@ typedef unsigned long mmask_t;
 #define COLOR_PAIR(n) ((chtype)((n) & 0xff) << 8)
 #define PAIR_NUMBER(a) ((int)(((a) & A_COLOR) >> 8))
 int wc_tile(int c);            /* screen cell -> tile (port/tiles.cpp) */
+extern int Wc_tileset;         /* 0 text, 1 WinOmega, 2 gromega (port/tiles.cpp) */
+void wc_retile(void);          /* the page switched sets: new tiles for the shown map */
 chtype wc_fold(chtype v);     /* window cell -> screen cell */
 
 #define COLOR_BLACK   0
@@ -222,7 +224,6 @@ extern "C" {
  * screen (curscr); when one of them covers the map, the screen is a pop-up. */
 enum { WC_FULL, WC_MAP, WC_SIDE, WC_STAT, WC_MSG, WC_PANES };
 void wc_pane(WINDOW *w, int pane);
-void wc_msg(const char *s, int append);   /* message history line */
 
 /* frontend: the whole screen, plus each pane */
 void be_init(int cols, int rows);

@@ -22,7 +22,7 @@ em++ -O2 -fexceptions $OBJ/src/*.o $OBJ/port/*.o \
 	-sEXPORTED_FUNCTIONS=_main \
 	-sEXPORTED_RUNTIME_METHODS=FS,IDBFS,ENV,addRunDependency,removeRunDependency \
 	-sFORCE_FILESYSTEM -lidbfs.js -sENVIRONMENT=web
-cp web/index.html web/omega.js web/tiles.png "$OUT/"
+cp web/index.html web/omega.js web/tiles.png web/gromega.png "$OUT/"
 # text fonts: the index page's fonts/ (served at ../fonts/ next to the games)
 if [ -d ~/Games/roguelikes-index/fonts ]; then
 	(cd ~/Games/roguelikes-index/fonts && ls *.woff | sed 's/\.woff$//') | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().split()))' > "$OUT/fonts.json"

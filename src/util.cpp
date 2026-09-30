@@ -328,7 +328,7 @@ void do_los(chtype pyx, int *x1, int *y1, int x2, int y2)
     plotchar(pyx, *x1, *y1);
     plotspot(ox, oy, true);
     doupdate();
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    omega_sleep(std::chrono::milliseconds(50));
   } while((*x1 != x2 || *y1 != y2) && !blocked);
   plotspot(*x1, *y1, true);
   levelrefresh();
@@ -412,7 +412,7 @@ void do_object_los(chtype pyx, int *x1, int *y1, int x2, int y2)
       plotchar(pyx, *x1, *y1);
       Level->site[*x1][*y1].showchar = pyx;
       doupdate();
-      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      omega_sleep(std::chrono::milliseconds(50));
     }
   } while((*x1 != x2 || *y1 != y2) && !blocked);
   if(!Level->site[*x1][*y1].creature && blocked)

@@ -14,6 +14,7 @@ EM_JS(void, js_cursor, (int y, int x), { Module.om.cursor(y, x); });
 EM_JS(void, js_flush, (void), { Module.om.flush(); });
 EM_JS(int, js_key, (int at_cmd), { return Module.om.key(at_cmd); });
 EM_JS(int, js_want_save, (void), { return Module.om.wantSave(); });
+EM_JS(int, js_tileset, (void), { return Module.om.tileset(); });
 EM_JS(void, js_end, (int saved), { Module.om.end(saved); });
 /* src/rl.cpp: the game's side of the page windows */
 extern int Rl_at_prompt;
@@ -55,12 +56,15 @@ EM_JS(void, be_popup, (int on), { Module.om.popup(on); });
 EM_JS(void, be_msg, (const char *s, int append), { Module.om.msg(UTF8ToString(s), append); });
 void be_flush(void) { rl_send_lists(); js_flush(); }
 void be_sleep(int ms) { emscripten_sleep(ms); }
+/* src/defs.h omega_sleep(): show the screen, then let the page run */
+void wc_sleep_ms(int ms) { doupdate(); emscripten_sleep(ms); }
 void be_end(void) { }
 
 int be_getkey(int wait)
 {
     int k;
     for (;;) {
+        if (js_tileset() != Wc_tileset) { Wc_tileset = js_tileset(); wc_retile(); }
         if (Rl_at_prompt && js_want_save()) {   /* at most every 2 s, at a command key */
             Rl_at_prompt = 0;
             rl_autosave();

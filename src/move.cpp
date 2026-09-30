@@ -599,7 +599,7 @@ void l_void()
     hourly_check();
     print_messages();
     doupdate();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    omega_sleep(std::chrono::milliseconds(250));
   }
 }
 
@@ -853,7 +853,7 @@ void l_void_station()
         hourly_check();
         print_messages();
         doupdate();
-        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+        omega_sleep(std::chrono::milliseconds(250));
       }
     }
     else

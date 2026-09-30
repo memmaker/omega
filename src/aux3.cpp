@@ -958,12 +958,13 @@ static int sitenums[] // the order matches sitenames[]
 
 int parsecitysite()
 {
-  // port: the known sites as a choice menu (the prefix typing is gone)
+  // port: the known sites as a choice menu (the prefix typing is gone);
+  // wizard mode: all of them (for testing the shops)
   std::vector<std::string> items;
   std::vector<int> index;
   for(int i = 0; i < NUMCITYSITES; ++i)
   {
-    if(CitySiteList[sitenums[i] - CITYSITEBASE][0])
+    if(CitySiteList[sitenums[i] - CITYSITEBASE][0] || gamestatusp(CHEATED, GameStatus))
     {
       items.push_back(sitenames[i]);
       index.push_back(i);

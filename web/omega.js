@@ -12,11 +12,19 @@
 	var PAL = ['#000000', '#0000aa', '#00aa00', '#00aaaa', '#aa0000', '#aa00aa', '#aa5500', '#aaaaaa',
 		'#555555', '#5555ff', '#55ff55', '#55ffff', '#ff5555', '#ff55ff', '#ffff55', '#ffffff'];
 	var A_COLOR = 0x7f00, A_STANDOUT = 0x10000, A_TILE = 0x20000, MAPW = 64;
-	/* map tiles: Kinder's sheet; C picks the tile (port/tiles.c, bits 18+), square cells of row height,
-	 * scrolled sideways to keep the player (cursor) in view, like WinOmega */
-	var tilesOn = true, sheet = new Image(), tox = 0;
+	/* map tiles: 1 = David Kinder's WinOmega sheet (32x32), 2 = gromega's (8x12), 0 = text;
+	 * C picks the tile of the set (port/tiles.cpp, bits 18+); cells of row height, as wide as
+	 * the set's tiles are, scrolled sideways to keep the player (cursor) in view, like WinOmega */
+	var SETS = [{ name: 'None' }, { name: 'WinOmega', src: 'tiles.png', n: 128, w: 32, h: 32 }, { name: 'gromega', src: 'gromega.png', n: 32, w: 8, h: 12 }];
+	var tileset = 1, tilesOn = true, S = SETS[1], sheet = new Image(), tox = 0;
 	sheet.onload = function () { dirty = true; draw(); if (tilesOn) renderLists(true); };
-	sheet.src = 'tiles.png';
+	function setTiles(n) {
+		tileset = SETS[n] ? n : 1; tilesOn = tileset > 0;
+		if (tilesOn) { S = SETS[tileset]; if (sheet.src.split('/').pop() !== S.src) sheet.src = S.src; }
+	}
+	setTiles(1);
+	function tw(h) { return Math.round(h * S.w / S.h); }   /* tile width at row height h */
+	function tile(g, t, x, y, w, h) { g.drawImage(sheet, t % S.n * S.w, Math.floor(t / S.n) * S.h, S.w, S.h, x, y, w, h); }
 	/* arrows = curses KEY_UP ... (rebirth's menus and point-buy take them, moving too);
 	 * Home/PageUp/End/PageDown and the keypad = Omega's number keys */
 	var KEYS = { ArrowUp: 259, ArrowDown: 258, ArrowLeft: 260, ArrowRight: 261, Home: 55, PageUp: 57,
@@ -85,14 +93,14 @@
 	function drawPane(p) {
 		var q = P[p], c = $(PANE_BOX[p]).firstChild;
 		if (!q || !c) return;
-		var m = met(p), ch = m.ch, w = p === MAP && tilesOn ? ch : m.cw;
+		var m = met(p), ch = m.ch, w = p === MAP && tilesOn ? tw(ch) : m.cw;
 		var g = size(c, q.c * w, q.r * ch, p === MAP, m.px);
 		g.fillStyle = '#000'; g.fillRect(0, 0, q.c * w, q.r * ch);
 		g.imageSmoothingEnabled = false;
 		for (var y = 0; y < q.r; y++)
 			for (var x = 0; x < q.c; x++) {
 				var v = q.buf[y * q.c + x], t = v >>> 18;
-				if (p === MAP && tilesOn && t-- && sheet.complete && sheet.naturalWidth) g.drawImage(sheet, t % 128 * 32, (t >> 7) * 32, 32, 32, x * w, y * ch, w, ch);
+				if (p === MAP && tilesOn && t-- && sheet.complete && sheet.naturalWidth) tile(g, t, x * w, y * ch, w, ch);
 				else cell(g, v, x * w, y * ch, w, m);
 			}
 		if (p !== MAP) return;
@@ -178,9 +186,9 @@
 				cell(ctx, v, x * cw, y * ch, cw);
 			}
 		if (!onMap && (cur.y !== hero.y || cur.x !== hero.x)) { ctx.fillStyle = PAL[7]; ctx.fillRect(cur.x * cw, cur.y * ch + ch - 2, cw, 2); }
-		/* the camera on the hero, where it is drawn: a tile (ch wide, scrolled by tox) or a text cell */
+		/* the camera on the hero, where it is drawn: a tile (tw(ch) wide, scrolled by tox) or a text cell */
 		var ht = tilesOn && hero.x < MAPW && scr[hero.y * cols + hero.x] & A_TILE;
-		if (one) { size(cv, cols * cw, rows * ch, true); return scroll(cv, ht ? (hero.x - tox + 0.5) * ch : (hero.x + 0.5) * cw, (hero.y + 0.5) * ch); }
+		if (one) { size(cv, cols * cw, rows * ch, true); return scroll(cv, ht ? (hero.x - tox + 0.5) * tw(ch) : (hero.x + 0.5) * cw, (hero.y + 0.5) * ch); }
 		/* pop-up over the panes: the whole screen, scaled down to fit */
 		var b = $('full'), s = Math.min(1, b.clientWidth / (cols * cw), b.clientHeight / (rows * ch));
 		cv.style.width = cols * cw * s + 'px'; cv.style.height = rows * ch * s + 'px';
@@ -188,27 +196,27 @@
 	}
 	/* true when the cursor is on the map (drawn here as a box) */
 	function drawTiles() {
-		var T = ch, nx = Math.min(MAPW, Math.floor(MAPW * cw / T)), onMap = cur.x < MAPW && scr[cur.y * cols + cur.x] & A_TILE;
+		var T = tw(ch), nx = Math.min(MAPW, Math.floor(MAPW * cw / T)), onMap = cur.x < MAPW && scr[cur.y * cols + cur.x] & A_TILE;
 		tox = Math.max(0, Math.min(MAPW - nx, hero.x - (nx >> 1)));
 		ctx.imageSmoothingEnabled = false;
 		for (var y = 0; y < rows; y++)
 			for (var i = 0; i < nx; i++) {
 				var v = scr[y * cols + tox + i], t = v >>> 18;
 				if (!(v & A_TILE)) continue;   /* text over the map: drawFull() */
-				if (t-- && sheet.complete && sheet.naturalWidth) ctx.drawImage(sheet, t % 128 * 32, (t >> 7) * 32, 32, 32, i * T, y * ch, T, T);
+				if (t-- && sheet.complete && sheet.naturalWidth) tile(ctx, t, i * T, y * ch, T, ch);
 				else cell(ctx, v, i * T, y * ch, T);
 			}
 		if (!onMap) return false;
 		if (cur.y === hero.y && cur.x === hero.x) return true;   /* no cursor on the hero */
 		ctx.strokeStyle = PAL[14]; ctx.lineWidth = 1;
-		ctx.strokeRect((cur.x - tox) * T + 0.5, cur.y * ch + 0.5, T - 1, T - 1);
+		ctx.strokeRect((cur.x - tox) * T + 0.5, cur.y * ch + 0.5, T - 1, ch - 1);
 		return true;
 	}
-	/* the set's name (David Kinder's WinOmega sheet), None = text */
-	function renderTilesBtn() { $('btn-tiles').textContent = 'Tiles: ' + (tilesOn ? 'WinOmega' : 'None'); }
+	/* the set's name (David Kinder's WinOmega sheet, gromega's), None = text; the button cycles */
+	function renderTilesBtn() { $('btn-tiles').textContent = 'Tiles: ' + SETS[tileset].name; }
 	function toggleTiles() {
-		tilesOn = !tilesOn;
-		try { Module.FS.writeFile(DIR + '/web-tiles', tilesOn ? 'WinOmega' : 'None'); app.sync(); } catch (e) { }   /* IndexedDB */
+		setTiles((tileset + 1) % SETS.length);
+		try { Module.FS.writeFile(DIR + '/web-tiles', SETS[tileset].name); app.sync(); } catch (e) { }   /* IndexedDB */
 		renderTilesBtn();
 		renderMapSel();
 		renderLists(true);
@@ -233,6 +241,8 @@
 		prompt: function (s) { if (s !== promptText) { promptText = s; dirty = true; } },
 		flush: function () { var l = $('log'); l.scrollTop = l.scrollHeight; draw(); },
 		lists: function (inv, vis) { lastInv = inv; lastVis = vis; renderLists(); },
+		/* the set the C side picks tiles from (be_getkey polls it) */
+		tileset: function () { return tileset; },
 		/* atCmd: the game waits for a command, not a y/n or item prompt */
 		key: function (atCmd) { RvipWM.prompt.wait(atCmd); return events.length ? events.shift() : -1; },
 		/* autosave at most every 2 s, and when the page is hidden */
@@ -258,9 +268,9 @@
 	var lastInv = '', lastVis = '';
 	function icon(t) {
 		if (!tilesOn || !(t >= 0) || !sheet.naturalWidth) return null;
-		var i = document.createElement('i');
+		var i = document.createElement('i'), k = 16 / S.h;   /* 16 px high */
 		i.className = 'wm-ic';
-		i.style.cssText = 'image-rendering:pixelated;background:url(' + sheet.src + ') -' + (t % 128) * 16 + 'px -' + (t >> 7) * 16 + 'px/' + sheet.naturalWidth / 2 + 'px auto';
+		i.style.cssText = 'image-rendering:pixelated;width:' + S.w * k + 'px;background:url(' + sheet.src + ') -' + (t % S.n) * S.w * k + 'px -' + Math.floor(t / S.n) * 16 + 'px/' + sheet.naturalWidth * k + 'px auto';
 		return i;
 	}
 	function renderLists(force) {
@@ -336,7 +346,7 @@
 				try { FS.mkdirTree(DIR + '/saves'); FS.mkdirTree('/omegalib'); if (!FS.analyzePath('/omegalib/saves').exists) FS.symlink(DIR + '/saves', '/omegalib/saves'); } catch (e) { console.warn(e); }
 				/* rebirth asks the character's name itself; USER is only the saves/ subfolder */
 				Module.ENV.LOGNAME = Module.ENV.USER = 'player';
-				try { tilesOn = Module.FS.readFile(DIR + '/web-tiles', { encoding: 'utf8' }) !== 'None'; renderTilesBtn(); } catch (e) { }
+				try { var n = Module.FS.readFile(DIR + '/web-tiles', { encoding: 'utf8' }); setTiles(SETS.map(function (s) { return s.name; }).indexOf(n)); renderTilesBtn(); } catch (e) { }
 				Module.removeRunDependency('idbfs');
 			}, { dir: '/save', files: ['omega.sav'] });
 			FS.chdir(DIR);
