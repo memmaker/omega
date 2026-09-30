@@ -56,7 +56,9 @@ old 0.80.2 port (history kept in `git log`). No native frontends any more.
   wcurses.c `tilecell`; walls join doors and blank cells; a refresh
   retiles the neighbours of changed cells); the countryside takes
   gromega's hand-drawn country.dat per cell (`port/gromega-country.inc`,
-  {tile, tile while a pass/site is hidden}). Cells keyed by char + PC colour.
+  {tile, tile while a pass/site is hidden}). Portcullis: gromega's V tile
+  when walls are north and south, else H (gromega set them per map; the
+  arena gate = V as there); doors have one open/closed tile in gromega too. Cells keyed by char + PC colour.
   omega.js cycles None/WinOmega/gromega (IndexedDB `web-tiles`),
   `be_getkey` polls `Module.om.tileset()`, `wc_retile()` redraws the map.
 - Rebirth fixes kept: F default sequence cut in half, SUPPRESS_PRINTING on
@@ -74,7 +76,6 @@ Not clicked: altar menus, bank crash animation, thieves'/college guilds.
 
 ## Open
 - gromega joining checked in the city, countryside (magic-mapped) and
-  WoodHenge; no random dungeon level clicked. Doors/portcullis keep one
-  tile (gromega's H/V variants not ported).
+  WoodHenge; no random dungeon level clicked.
 - Presentation rule 6 (text windows as HTML, only the map a canvas).
 - Sound (stage 6 search for upstream audio), mouse.

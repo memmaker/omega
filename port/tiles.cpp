@@ -116,6 +116,13 @@ static int gro_tile(int c, const int *nb, int y, int x)
     static const int fam[][2] = {
       {(int)(wc_fold(WALL) & 0x7fff), 0xd0}, {(int)(wc_fold(HEDGE) & 0x7fff), 0x100}, {(int)(wc_fold(WATER) & 0x7fff), 0xa0}};
     static const int door[] = {(int)(wc_fold(OPEN_DOOR) & 0x7fff), (int)(wc_fold(CLOSED_DOOR) & 0x7fff)};
+    // gromega sets H_PORTCULLIS / V_PORTCULLIS per map (city.c, env.c): here
+    // from the wall it sits in, walls north and south = vertical. Doors: gromega
+    // has one open and one closed door tile only.
+    if(c == (int)(wc_fold(PORTCULLIS) & 0x7fff))
+    {
+      return (nb[1] == fam[0][0] && nb[6] == fam[0][0] ? 0x143 : 0x142) + 1;
+    }
     for(const auto &f : fam)
     {
       if(c != f[0])
