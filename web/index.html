@@ -52,8 +52,10 @@
 	#log div + div { border-top: 1px solid var(--line); }
 	#msgb { display: flex; flex-direction: column; }
 	#log { flex: 1; min-height: 0; }
-	.win > .body canvas, #full canvas { position: absolute; }
-	#full { position: absolute; inset: 0; z-index: 3; background: #000; }
+	.win > .body canvas { position: absolute; }
+	#full canvas { display: block; }
+	/* a menu or list the game puts over the map: only its box, placed by RvipWM.popup() */
+	#full { position: absolute; z-index: 3; background: #000; border: 1px solid #888; overflow: auto; }
 	#full[hidden] { display: none; }
 	#overlay, #help { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: flex;
 		align-items: center; justify-content: center; z-index: 10; }

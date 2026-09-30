@@ -52,7 +52,7 @@ void be_cursor(int y, int x) { js_cursor(y, x); }
 EM_JS(void, be_pane, (int p, int y, int x, int r, int c), { Module.om.pane(p, y, x, r, c); });
 EM_JS(void, be_pput, (int p, int y, int x, chtype ch), { Module.om.pput(p, y, x, ch); });
 EM_JS(void, be_hero, (int y, int x), { Module.om.hero(y, x); });
-EM_JS(void, be_popup, (int on), { Module.om.popup(on); });
+EM_JS(void, be_popup, (int on, int y, int x, int r, int c), { Module.om.popup(on, y, x, r, c); });
 EM_JS(void, be_msg, (const char *s, int append), { Module.om.msg(UTF8ToString(s), append); });
 void be_flush(void) { rl_send_lists(); js_flush(); }
 void be_sleep(int ms) { emscripten_sleep(ms); }

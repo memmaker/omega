@@ -230,50 +230,88 @@ void wc_pane(WINDOW *w, int p)
     be_pane(p, y, x, P[p].r, P[p].c);
 }
 
+/* a map cell with its tile; the tile looks at the 8 neighbours the window
+ * holds (gromega joins walls, hedges, water) */
+static chtype tilecell(WINDOW *w, int y, int x)
+{
+    chtype v = wc_fold(w->c[y * w->maxx + x]);
+    int nb[8], k = 0, dy, dx;
+    for (dy = -1; dy <= 1; dy++)
+        for (dx = -1; dx <= 1; dx++)
+            if (dy || dx) {
+                int ny = y + dy, nx = x + dx;
+                nb[k++] = ny < 0 || nx < 0 || ny >= w->maxy || nx >= w->maxx ? -1 : (int)(wc_fold(w->c[ny * w->maxx + nx]) & 0x7fff);
+            }
+    return v | A_TILE | (chtype)wc_tile(v, nb, y, x) << 18;
+}
+
+/* one window cell onto curscr and its pane */
+static void putcell(WINDOW *w, int y, int x, chtype v)
+{
+    int sy = y + w->begy, sx = x + w->begx;
+    int pane = w->own ? w->own[sy * COLS + sx] : w->pane;
+    if (sy >= 0 && sx >= 0 && sy < LINES && sx < COLS) { curscr->c[sy * COLS + sx] = v; owner[sy * COLS + sx] = pane; }
+    if (pane) {
+        int py = sy - P[pane].y, px = sx - P[pane].x, i = py * P[pane].c + px;
+        if (P[pane].shown[i] != v) { P[pane].shown[i] = v; be_pput(pane, py, px, v); }
+    }
+}
+
+/* a map cell not refreshed itself but next to one that was (its joins may
+ * change), or all of them for a new tile set: only where the map is on top */
+static void retilecell(WINDOW *w, int y, int x)
+{
+    int sy = y + w->begy, sx = x + w->begx;
+    if (sy >= 0 && sx >= 0 && sy < LINES && sx < COLS && owner[sy * COLS + sx] == w->pane && (curscr->c[sy * COLS + sx] & A_TILE))
+        putcell(w, y, x, tilecell(w, y, x));
+}
+
+static WINDOW *tilewin;     /* the map window (tiles), for wc_retile() */
+
 int wnoutrefresh(WINDOW *w)
 {
-    int y, x;
+    int y, x, *lo = 0, *hi = 0;
     if (!curscr || !w) return ERR;
     if (w->clear) memset(shown, 0xff, sizeof(chtype) * LINES * COLS);
     w->clear = 0;
+    if (w->tiles) {             /* the refreshed ranges, to retile their neighbours */
+        tilewin = w;
+        lo = malloc(w->maxy * sizeof *lo); hi = malloc(w->maxy * sizeof *hi);
+        memcpy(lo, w->lo, w->maxy * sizeof *lo); memcpy(hi, w->hi, w->maxy * sizeof *hi);
+    }
     /* like curses, only the cells changed (or touchwin()ed) since the last
      * refresh reach the screen: windows overlap (menus over the map) */
     for (y = 0; y < w->maxy; y++, w->lo[y - 1] = w->maxx, w->hi[y - 1] = 0)
-        for (x = w->lo[y]; x < w->hi[y]; x++) {
-            int sy = y + w->begy, sx = x + w->begx;
-            chtype v = w->own ? w->c[y * w->maxx + x] : wc_fold(w->c[y * w->maxx + x]);
-            int pane = w->own ? w->own[sy * COLS + sx] : w->pane;
-            if (w->tiles) v |= A_TILE | (chtype)wc_tile(v) << 18;
-            if (sy >= 0 && sx >= 0 && sy < LINES && sx < COLS) { curscr->c[sy * COLS + sx] = v; owner[sy * COLS + sx] = pane; }
-            if (pane) {
-                int py = sy - P[pane].y, px = sx - P[pane].x, i = py * P[pane].c + px;
-                if (P[pane].shown[i] != v) { P[pane].shown[i] = v; be_pput(pane, py, px, v); }
-            }
+        for (x = w->lo[y]; x < w->hi[y]; x++)
+            putcell(w, y, x, w->tiles ? tilecell(w, y, x) : w->own ? w->c[y * w->maxx + x] : wc_fold(w->c[y * w->maxx + x]));
+    if (lo) {
+        for (y = 0; y < w->maxy; y++) {
+            int dy, a = w->maxx, b = 0;
+            for (dy = y - 1; dy <= y + 1; dy++)
+                if (dy >= 0 && dy < w->maxy && lo[dy] < hi[dy]) { if (lo[dy] - 1 < a) a = lo[dy] - 1; if (hi[dy] + 1 > b) b = hi[dy] + 1; }
+            for (x = a < 0 ? 0 : a; x < b && x < w->maxx; x++)
+                if (x < lo[y] || x >= hi[y]) retilecell(w, y, x);
         }
+        free(lo); free(hi);
+    }
     w->dirty = 0;
     cury = w->cury + w->begy; curx = w->curx + w->begx;
     return OK;
 }
 
-/* tile bits of every map cell from the current set (bits below 18 = the cell) */
+/* the page switched tile sets: new tiles for the shown map */
 void wc_retile(void)
 {
-    int i, p;
-    for (i = 0; i < LINES * COLS; i++)
-        if (curscr->c[i] & A_TILE) curscr->c[i] = (curscr->c[i] & 0x3ffff) | (chtype)wc_tile(curscr->c[i]) << 18;
-    for (p = WC_MAP; p < WC_PANES; p++)
-        for (i = 0; P[p].shown && i < P[p].r * P[p].c; i++) {
-            chtype v = P[p].shown[i];
-            if (v == (chtype)-1 || !(v & A_TILE)) continue;
-            v = (v & 0x3ffff) | (chtype)wc_tile(v) << 18;
-            if (v != P[p].shown[i]) { P[p].shown[i] = v; be_pput(p, i / P[p].c, i % P[p].c, v); }
-        }
+    int y, x;
+    if (tilewin)
+        for (y = 0; y < tilewin->maxy; y++)
+            for (x = 0; x < tilewin->maxx; x++) retilecell(tilewin, y, x);
     doupdate();
 }
 
 int doupdate(void)
 {
-    int y, x, p, pop = 0;
+    int y, x, p, pop = 0, y0 = LINES, x0 = COLS, y1 = 0, x1 = 0;
     if (!curscr) return ERR;
     /* a window that isn't a pane covers a pane (menus over the map, choice
      * boxes over the side panel): show the whole screen */
@@ -281,8 +319,14 @@ int doupdate(void)
         for (y = P[p].y; y < P[p].y + P[p].r; y++)
             for (x = P[p].x; x < P[p].x + P[p].c; x++)
                 /* side panes have gaps no game window draws: there only text counts */
-                if (owner[y * COLS + x] == WC_FULL && (p == WC_MAP || (curscr->c[y * COLS + x] & A_CHARTEXT) > ' ')) pop = 1;
-    be_popup(pop || !P[WC_MAP].r);
+                if (owner[y * COLS + x] == WC_FULL && (p == WC_MAP || (curscr->c[y * COLS + x] & A_CHARTEXT) > ' ')) {
+                    pop = 1;    /* the pop-up's box (its text): the page shows only it, over the panes */
+                    if ((curscr->c[y * COLS + x] & A_CHARTEXT) > ' ') {
+                        if (y < y0) y0 = y; if (x < x0) x0 = x; if (y >= y1) y1 = y + 1; if (x >= x1) x1 = x + 1;
+                    }
+                }
+    if (!P[WC_MAP].r || y1 <= y0) { y0 = x0 = 0; y1 = LINES; x1 = COLS; pop |= !P[WC_MAP].r; }
+    be_popup(pop, y0, x0, y1 - y0, x1 - x0);
     for (y = 0; y < LINES * COLS; y++)
         if (shown[y] != curscr->c[y]) {
             shown[y] = curscr->c[y];

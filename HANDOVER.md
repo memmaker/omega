@@ -39,6 +39,10 @@ old 0.80.2 port (history kept in `git log`). No native frontends any more.
   message rows -> `RvipWM.prompt`, Inventory/Visible lists, autosave at the
   command prompt (every 2 s), `wc_exit` game-over overlay (deletes the
   autosave unless saved with S), run-report beacon.
+- Pop-ups (any game window over a pane: menus, item menu, checklists,
+  shops, prompts): `doupdate` passes the box of its text to `be_popup`;
+  multi-window draws only that box in `#full`, placed by `RvipWM.popup()`
+  over the unchanged layout (one-window shows the whole screen anyway).
 - Pauses: `omega_sleep()` (defs.h) = sleep_for natively, on the web
   `doupdate` + `emscripten_sleep` (casino reels, bank, ... animate).
 - Tiles: `Wc_tileset` 1 = David Kinder's WinOmega 32x32 sheet
@@ -47,7 +51,12 @@ old 0.80.2 port (history kept in `git log`). No native frontends any more.
   www.alcyone.com/binaries/omega/gromega-0.80.2a-src.tar.gz, degridded to
   `web/gromega.png`, 8x12, code = row*32+col; `gromega.inc` = monster name
   -> code from its minit.h/ochars.h; terrain and item classes by hand in
-  `tiles.cpp`; no wall/river joining). Cells keyed by char + PC colour.
+  `tiles.cpp`). Joining as gromega's truetiles.c: walls/hedges/water pick
+  one of 47 pieces from the 8 neighbours the map window shows (`gjoin`,
+  wcurses.c `tilecell`; walls join doors and blank cells; a refresh
+  retiles the neighbours of changed cells); the countryside takes
+  gromega's hand-drawn country.dat per cell (`port/gromega-country.inc`,
+  {tile, tile while a pass/site is hidden}). Cells keyed by char + PC colour.
   omega.js cycles None/WinOmega/gromega (IndexedDB `web-tiles`),
   `be_getkey` polls `Module.om.tileset()`, `wc_retile()` redraws the map.
 - Rebirth fixes kept: F default sequence cut in half, SUPPRESS_PRINTING on
@@ -64,7 +73,8 @@ None/WinOmega/gromega + persistence, log without colour markup (the
 Not clicked: altar menus, bank crash animation, thieves'/college guilds.
 
 ## Open
-- gromega: no wall/hedge/river/mountain joining (gromega computes it from
-  neighbours: truetiles.c); every cell one whole tile.
+- gromega joining checked in the city, countryside (magic-mapped) and
+  WoodHenge; no random dungeon level clicked. Doors/portcullis keep one
+  tile (gromega's H/V variants not ported).
 - Presentation rule 6 (text windows as HTML, only the map a canvas).
 - Sound (stage 6 search for upstream audio), mouse.

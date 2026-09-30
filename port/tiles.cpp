@@ -42,8 +42,10 @@ extern "C" chtype wc_fold(chtype);
  * gromega gives each monster and terrain piece its own code (its ochars.h);
  * here, as for WinOmega, only the screen cell is known: monsters by name ->
  * their char/colour (port/gromega.inc, made from its minit.h + ochars.h by
- * a regex over ",C_xxx,\"name\"" lines), terrain and item classes by hand,
- * no wall/river joining. Set from the page (be_web.c): 0 text, 1 WinOmega,
+ * a regex over ",C_xxx,\"name\"" lines), terrain and item classes by hand.
+ * Joining as gromega's truetiles.c: walls, hedges and pools pick one of 47
+ * pieces from their 8 shown neighbours (nb, -1 = off the window); the
+ * countryside takes gromega's hand-drawn country.dat cell by cell. Set from the page (be_web.c): 0 text, 1 WinOmega,
  * 2 gromega. */
 extern "C" int Wc_tileset;
 int Wc_tileset = 1;
@@ -66,7 +68,13 @@ static const unsigned gloc[][2] = {
   {FURNITURE, 0x148}, {BED, 0x148},
 };
 static short gtile[0x8000];
-static int gro_tile(int c)
+/* assign_wall_char() (same for hedges, pools): neighbour mask (bit 7 = NW
+ * ... bit 0 = SE, row by row) -> piece offset from the family's base */
+static const unsigned char gjoin[256] = {46,46,44,44,46,46,44,44,42,42,38,32,42,42,38,32,43,43,39,39,43,43,33,33,36,36,24,20,36,36,21,16,46,46,44,44,46,46,44,44,42,42,38,32,42,42,38,32,43,43,39,39,43,43,33,33,36,36,24,20,36,36,21,16,45,45,37,37,45,45,37,37,40,40,30,26,40,40,30,26,41,41,31,31,41,41,28,28,25,25,15,11,25,25,12,5,45,45,37,37,45,45,37,37,34,34,27,18,34,34,27,18,41,41,31,31,41,41,28,28,22,22,13,7,22,22,10,1,46,46,44,44,46,46,44,44,42,42,38,32,42,42,38,32,43,43,39,39,43,43,33,33,36,36,24,20,36,36,21,16,46,46,44,44,46,46,44,44,42,42,38,32,42,42,38,32,43,43,39,39,43,43,33,33,36,36,24,20,36,36,21,16,45,45,37,37,45,45,37,37,40,40,30,26,40,40,30,26,35,35,29,29,35,35,19,19,23,23,14,9,23,23,8,2,45,45,37,37,45,45,37,37,34,34,27,18,34,34,27,18,35,35,29,29,35,35,19,19,17,17,6,3,17,17,4,0};
+static const unsigned short gcountry[64][64][2] = {
+#include "gromega-country.inc"
+};
+static int gro_tile(int c, const int *nb, int y, int x)
 {
   static bool built;
   if(!built)
@@ -88,17 +96,55 @@ static int gro_tile(int c)
     }
     built = true;
   }
+  if(nb && Current_Environment == E_COUNTRYSIDE)
+  {
+    int mx = x + HorizontalOffset, my = y + ScreenOffset;
+    if(mx >= 0 && my >= 0 && mx < 64 && my < 64)
+    {
+      if(c == (int)(wc_fold(Country[mx][my].base_terrain_type) & 0x7fff))
+      {
+        return gcountry[my][mx][0] + 1;
+      }
+      if(c == (int)(wc_fold(Country[mx][my].current_terrain_type) & 0x7fff))
+      {
+        return gcountry[my][mx][1] + 1;
+      }
+    }
+  }
+  else if(nb)
+  {
+    static const int fam[][2] = {
+      {(int)(wc_fold(WALL) & 0x7fff), 0xd0}, {(int)(wc_fold(HEDGE) & 0x7fff), 0x100}, {(int)(wc_fold(WATER) & 0x7fff), 0xa0}};
+    static const int door[] = {(int)(wc_fold(OPEN_DOOR) & 0x7fff), (int)(wc_fold(CLOSED_DOOR) & 0x7fff)};
+    for(const auto &f : fam)
+    {
+      if(c != f[0])
+      {
+        continue;
+      }
+      int m = 0;
+      for(int k = 0; k < 8; k++)
+      {
+        int n = nb[k];
+        // gromega: walls join doors and unseen cells (blank), each family itself, the map edge
+        bool j = n < 0 || n == c ||
+                 (f[1] == 0xd0 && (n == door[0] || n == door[1] || (n & 0xff) == ' ' || (n & 0xff) == 0));
+        m = m << 1 | j;
+      }
+      return f[1] + gjoin[m] + 1;
+    }
+  }
   return gtile[c];
 }
 
 /* c: a screen cell (already folded) */
-extern "C" int wc_tile(int c)
+extern "C" int wc_tile(int c, const int *nb, int y, int x)
 {
   static bool built;
   c &= 0x7fff;
   if(Wc_tileset == 2)
   {
-    return gro_tile(c);
+    return gro_tile(c, nb, y, x);
   }
   if(!built)
   {
@@ -127,7 +173,7 @@ extern "C" int wc_tile(int c)
 /* a game glyph (char | pair | A_BOLD): its tile, and its PC colour */
 extern "C" int wc_tile_of(chtype c)
 {
-  return wc_tile(wc_fold(c));
+  return wc_tile(wc_fold(c), nullptr, 0, 0);
 }
 extern "C" int wc_colour_of(chtype c)
 {

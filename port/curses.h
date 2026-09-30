@@ -41,7 +41,7 @@ typedef unsigned long mmask_t;
 #define WA_UNDERLINE A_UNDERLINE
 #define COLOR_PAIR(n) ((chtype)((n) & 0xff) << 8)
 #define PAIR_NUMBER(a) ((int)(((a) & A_COLOR) >> 8))
-int wc_tile(int c);            /* screen cell -> tile (port/tiles.cpp) */
+int wc_tile(int c, const int *nb, int y, int x); /* map cell (its 8 neighbours or NULL, window y/x) -> tile (port/tiles.cpp) */
 extern int Wc_tileset;         /* 0 text, 1 WinOmega, 2 gromega (port/tiles.cpp) */
 void wc_retile(void);          /* the page switched sets: new tiles for the shown map */
 chtype wc_fold(chtype v);     /* window cell -> screen cell */
@@ -230,7 +230,7 @@ void be_init(int cols, int rows);
 void be_put(int y, int x, chtype ch);
 void be_pane(int pane, int y, int x, int rows, int cols);  /* pane rect on the screen */
 void be_pput(int pane, int y, int x, chtype ch);          /* cell inside the pane */
-void be_popup(int on);
+void be_popup(int on, int y, int x, int rows, int cols);  /* a window over the panes: its box */
 void be_msg(const char *s, int append);
 void be_cursor(int y, int x);
 void be_hero(int y, int x);   /* player's screen cell: the map camera centres on it (RVIP.md W4) */

@@ -48,7 +48,7 @@
 	function status(msg, isError) { app.status(msg, isError); }
 
 	/* ---------- drawing: the whole screen (cv) and one canvas per pane, all from the game's cells ---------- */
-	var MAP = 1, SIDE = 2, STAT = 3, PANE_BOX = { 1: 'map', 2: 'side', 3: 'stat' }, P = {}, popup = true;
+	var MAP = 1, SIDE = 2, STAT = 3, PANE_BOX = { 1: 'map', 2: 'side', 3: 'stat' }, P = {}, popup = true, prect = { y: 0, x: 0, r: 1, c: 1 };
 	/* fonts: L.face for the text windows and pop-ups, L.mapFace for the map (text mode) */
 	function face(map) { var n = map ? L.mapFace : L.face; return n ? '"' + n + '", ' + FONT : FONT; }
 	function measure() {
@@ -159,7 +159,8 @@
 		});
 		wm.apply();
 	}
-	/* single window: the whole screen in the map window; multi: the panes, the whole screen over them while a pop-up is up */
+	/* single window: the whole screen in the map window; multi: the panes, and a
+	   pop-up (a game window over them: menus, lists) as a box over the layout */
 	function draw() {
 		if (!dirty || !scr || !wm) return;
 		dirty = false;
@@ -167,13 +168,22 @@
 		if (cv.parentNode !== box) box.appendChild(cv);
 		$('map').firstChild.style.display = one ? 'none' : '';
 		$('full').hidden = one || !popup;
-		if (one || popup) drawFull(one);
+		if (one) drawFull(); else if (popup) drawPop();
 		if (!one) [MAP, SIDE, STAT].forEach(drawPane);
 		RvipWM.prompt.text(one ? '' : promptText);   /* one window shows the message rows itself */
 	}
-	function drawFull(one) {
-		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-		ctx.font = px + 'px ' + face(one);
+	/* the pop-up's box of the screen, in the text windows' font */
+	function drawPop() {
+		var R = prect, m = met(SIDE);
+		size(cv, R.c * m.cw, R.r * m.ch, false, m.px);
+		cv.style.left = cv.style.top = '';
+		ctx.fillStyle = '#000'; ctx.fillRect(0, 0, R.c * m.cw, R.r * m.ch);
+		for (var y = 0; y < R.r; y++)
+			for (var x = 0; x < R.c; x++) cell(ctx, scr[(R.y + y) * cols + R.x + x], x * m.cw, y * m.ch, m.cw, m);
+		RvipWM.popup($('full'));
+	}
+	function drawFull() {
+		size(cv, cols * cw, rows * ch, true);
 		ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cols * cw, rows * ch);
 		/* map tiles first, then every text cell (side panel, messages, menus
 		   and lists over the map) at its text position, on black */
@@ -188,11 +198,7 @@
 		if (!onMap && (cur.y !== hero.y || cur.x !== hero.x)) { ctx.fillStyle = PAL[7]; ctx.fillRect(cur.x * cw, cur.y * ch + ch - 2, cw, 2); }
 		/* the camera on the hero, where it is drawn: a tile (tw(ch) wide, scrolled by tox) or a text cell */
 		var ht = tilesOn && hero.x < MAPW && scr[hero.y * cols + hero.x] & A_TILE;
-		if (one) { size(cv, cols * cw, rows * ch, true); return scroll(cv, ht ? (hero.x - tox + 0.5) * tw(ch) : (hero.x + 0.5) * cw, (hero.y + 0.5) * ch); }
-		/* pop-up over the panes: the whole screen, scaled down to fit */
-		var b = $('full'), s = Math.min(1, b.clientWidth / (cols * cw), b.clientHeight / (rows * ch));
-		cv.style.width = cols * cw * s + 'px'; cv.style.height = rows * ch * s + 'px';
-		scroll(cv, 0, 0);
+		scroll(cv, ht ? (hero.x - tox + 0.5) * tw(ch) : (hero.x + 0.5) * cw, (hero.y + 0.5) * ch);
 	}
 	/* true when the cursor is on the map (drawn here as a box) */
 	function drawTiles() {
@@ -235,7 +241,7 @@
 		hero: function (y, x) { hero.y = y; hero.x = x; dirty = true; },
 		pane: function (p, y, x, r, c) { P[p] = { y: y, x: x, r: r, c: c, buf: new Uint32Array(r * c) }; dirty = true; },
 		pput: function (p, y, x, v) { P[p].buf[y * P[p].c + x] = v; dirty = true; },
-		popup: function (on) { if (popup !== !!on) { popup = !!on; dirty = true; } },
+		popup: function (on, y, x, r, c) { popup = !!on; if (on) prect = { y: y, x: x, r: r, c: c }; dirty = true; },
 		msg: msg,
 		/* the message lines since the last command (src/rl.cpp) */
 		prompt: function (s) { if (s !== promptText) { promptText = s; dirty = true; } },
