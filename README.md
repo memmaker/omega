@@ -1,5 +1,10 @@
 # Omega
 
+> **This fork (ruzzoli.de):** Omega Rebirth v0.7.0 (upstream a83c9d7) built for the browser only
+> (Emscripten, `web/build.sh`, played at https://ruzzoli.de/roguelikes/omega/), with a curses shim,
+> auto-explore, choice menus, one inventory list, and WinOmega / gromega tiles. See HANDOVER.md.
+> The build instructions below are upstream's native ones.
+
 My C++ fork of the 1987 roguelike "Omega", featuring numerous bug-fixes as well as balance and UI improvements.
 ![Screenshot of Omega](Omega.png)
 

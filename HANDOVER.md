@@ -1,62 +1,70 @@
-# Omega 0.80.2 — RVIP port
+# Omega Rebirth v0.7.0 — RVIP port (web only)
 
-Case O (curses, no Rogue/Moria lineage). `git log`: upstream, then the port.
+Case O (curses, many fixed windows). Upstream: github.com/Lyle-Tafoya/Omega
+a83c9d7 ("omega rebirth version 0.7.0", C++23), imported 2026-09-30 over the
+old 0.80.2 port (history kept in `git log`). No native frontends any more.
 
-- Web: `sh web/build.sh`, `web/deploy.sh` → https://ruzzoli.de/roguelikes/omega/.
-  The help page step needs `~/Desktop/Games/Roguelikes/Docs/build-docs.py`
-  (not in a repo); without it help.html stays empty.
-- Native: `make -f port/Makefile` (X11; `./play.sh`, saves in `save/`);
-  `be_term.c` = terminal build (release workflow).
-- Port: `port/` (curses shim, `be_x11.c`, `be_web.c`), `rl.c` (explore `X`,
-  stairs `<`/`>`, Enter menu, inventory item menu), small hooks in
-  command1.c, inv.c (`getitem` cursor, `inventory_control` keys), scr.c,
-  save.c, command2.c, char.c, defs.h. Help: `omegalib/help12.txt`.
-- Choice menus: `rl_choose` / `rl_choose_keys` / `rl_menu` / `rl_ask`
-  (rl.c) show every multiple-choice question as a list in a box at the
-  right (under the message rows, clear of Menuw), picked by key or
-  arrows/8/2 (9/3 a page) + Enter/space/5. `rl_menu("title", "k:text|...")`
-  labels each entry `k) text`, takes k (letters either case unless the keys
-  differ only by case) and returns it (ESCAPE for none), so the call sites
-  keep their switches and old key sequences still work. An entry keyed
-  `\n` starts highlighted (F: Enter = Done). Keys win over movement keys
-  (NPC behaviour menu 1-5: there the down arrow of X11/web, sent as '2',
-  picks 2). No old keys (M, casting, item/monster lists): a) b) c) ...,
-  then A-Z. `rl_ask`: must answer. Used by M, casting, shops, guilds, bank,
-  altars, maneuvers (F, getlocation), wishes, portals, the top-line
-  inventory (actions, slots a-o/*, pack A..), etc. y/n questions and free
-  text (names, amounts) are unchanged.
-- be_term.c: Enter is '\n' like X11 and the web (was '\r': name entry
-  never ended in the terminal build).
-- Web tiles: David Kinder's WinOmega 32x32 sheet (github.com/DavidKinder/Omega
-  fae6f21, `32x32.bmp` -> `web/tiles.png`). C picks the tile: `port/tiles.c`
-  (`wc_tile`, table = Kinder's `gfxMapData` in `port/map.inc`, plus his
-  non-countryside cases: cold blast, incubus/satyr). Levelw cells carry
-  `A_TILE` + tile in bits 18+; omega.js only blits, scrolled round the player;
-  *Tiles* button (choice kept in the game's IndexedDB folder). `drawFull()` blits the A_TILE cells
-  (`drawTiles`, T = ch wide, scrolled by `tox`), then every other cell as
-  text at x*cw on black: menus and lists over the map (Enter menu, choice
-  menus) stay text, never tile-wide. The camera (`RvipWM.center`) gets the
-  hero where it is drawn: `(hero.x - tox) * ch` on a tile, else `x * cw`. X11 (`be_x11.c`) draws the same from
-  `port/tiles.bmp` (Kinder's BMP as is); `OMEGA_TILES=0 ./play.sh` = text.
-- Web messages: `morewait()` never waits (`auto_more`); the message
-  history is the log window, the live message rows go to `RvipWM.prompt`
-  (rvip-wm.js, `js_key(at_cmd)` hides it on a command key). `exit()` is
-  `wc_exit` (`-Dexit=` in build.sh): Emscripten runs no atexit handlers, so
-  it shows the game-over overlay, unlinks the autosave and idles.
-- Web zoom is rvip-wm.js's: one size per window and mode (`state.fs` multi,
-  `state.fs1` one window). `layout()` sets `px = wm.zoomed('map') || fit()`;
-  `size.map` = drawn px, `fontMax.map` = 40. One window has no title bar, so
-  no A-/A+ there: it always fits.
-- Tested: char creation, city, countryside travel, temple explore + doors,
-  menu, item menu quaff + reopen, save/restore, ASan run (clean), web
-  menu/autosave/restore in the browser, starving to death in town (RIP
-  screen, game-over overlay, fresh game on reload). 2026-09-28, terminal
-  build in a pty: char creation menus, M, bank, F + locations, activate,
-  top-line inventory (actions, slots, *). Web (local build, headless
-  Chromium): Enter menu over the tiles, map zoom +6, one window and back
-  (multi zoom kept, one window fits), camera on the walking player.
-  Not tested: X11 build (no Xft here).
+- Layout: `src/` rebirth + port hooks, `lib/` game data (was `omegalib/`),
+  `port/` curses shim (`curses.h`, `wcurses.c`, `be_web.c`, `tiles.cpp`,
+  `map.inc`, `gromega.inc`), `web/` page, build, deploy.
+- Build: `sh web/build.sh` (em++ from Homebrew) -> `web/dist`. Objects cached
+  in `build-web/`; header changes are not tracked: `rm -rf build-web` after
+  editing a header. help.html needs `~/Desktop/Games/Roguelikes/Docs/build-docs.py`
+  (not in a repo; `web/make-help.py` adds the web parts + FAQ/hints/spoilers).
+- Deploy: `web/deploy.sh` (refuses a dirty or unpushed tree) -> 
+  https://ruzzoli.de/roguelikes/omega/. The page loads `../rvip-wm.js` (one
+  copy, rvip-tools; never copy it).
+- Local test: a folder of symlinks (`omega` -> `web/dist`, `rvip-wm.js`,
+  `rvip-app.js`, `rvip-sound.js` -> rvip-tools/web, `fonts`), `python3 -m
+  http.server 8765`, http://localhost:8765/omega/index.html.
+- Native check only: `sh build-term.sh` (ncurses, `./omega-term`).
+- Wizard mode (`^g`) needs user name == `WIZARD` ("wtanksle", defs.h); the
+  web user is "player". For testing build once with
+  `'-DWIZARD=\"player\"'` in CXXFLAGS; never commit that. In wizard mode `M`
+  lists every city site.
+
+## Port (src/rl.cpp + hooks)
+- `X` explore (paints each step), `<`/`>` walk to known stairs, Enter
+  command menu (help12/13).
+- Choice menus `rl_choose` / `rl_choose_keys` / `rl_menu` / `rl_ask`: M,
+  casting, shops, guilds, bank, altars, F + locations, wishes, portals,
+  NPC behaviour ... y/n and free text unchanged.
+- Inventory: one `i` list (slots + pack, A = top of pack) -> item menu
+  use/equip/take off/drop/call; `w` equip from pack, `W` take off, `d` drops
+  pack or worn items; every item prompt offers pack items (held in slot 0
+  for the command, `rl_return_held`, rummage time); `g` on a pile =
+  checklist; auto-pickup only money and stacking items.
+- Web: log window from the message history (`rl_messages`; colour markup
+  `|x` stripped, rebirth's own "text xN" folded into "text (xN)"), live
+  message rows -> `RvipWM.prompt`, Inventory/Visible lists, autosave at the
+  command prompt (every 2 s), `wc_exit` game-over overlay (deletes the
+  autosave unless saved with S), run-report beacon.
+- Pauses: `omega_sleep()` (defs.h) = sleep_for natively, on the web
+  `doupdate` + `emscripten_sleep` (casino reels, bank, ... animate).
+- Tiles: `Wc_tileset` 1 = David Kinder's WinOmega 32x32 sheet
+  (`web/tiles.png`, `map.inc` = his gfxMapData), 2 = gromega 0.80.2a
+  (`omegalib/omegatiles.xpm` from
+  www.alcyone.com/binaries/omega/gromega-0.80.2a-src.tar.gz, degridded to
+  `web/gromega.png`, 8x12, code = row*32+col; `gromega.inc` = monster name
+  -> code from its minit.h/ochars.h; terrain and item classes by hand in
+  `tiles.cpp`; no wall/river joining). Cells keyed by char + PC colour.
+  omega.js cycles None/WinOmega/gromega (IndexedDB `web-tiles`),
+  `be_getkey` polls `Module.om.tileset()`, `wc_retile()` redraws the map.
+- Rebirth fixes kept: F default sequence cut in half, SUPPRESS_PRINTING on
+  restore, scrolling_buffer "_ " sentinel.
+
+## Tested (2026-09-30, local build in the built-in browser)
+Char creation (point-buy arrows), city, M (all sites in wizard mode),
+casino slots (reels animate), Julie's weapon purchase, pawn shop sell from
+pack, tavern (closed by day), paladins and mercenaries (join/refuse), bank
+menu, F maneuvers menu + aim, Export (Player.sav download) and Import
+(replaces, restores), save/autosave/restore, death overlay, tile cycling
+None/WinOmega/gromega + persistence, log without colour markup (the
+"x2 (x2)" fold not seen live). Inventory stage: pile pickup, pack items in prompts, w/W, d, i menu.
+Not clicked: altar menus, bank crash animation, thieves'/college guilds.
 
 ## Open
-- Presentation rule 6 (text windows as HTML, only the map a canvas) not done.
-- Sound: Stage 6 web search for upstream audio not done/noted yet. Mouse.
+- gromega: no wall/hedge/river/mountain joining (gromega computes it from
+  neighbours: truetiles.c); every cell one whole tile.
+- Presentation rule 6 (text windows as HTML, only the map a canvas).
+- Sound (stage 6 search for upstream audio), mouse.
