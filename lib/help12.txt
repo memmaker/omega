@@ -13,11 +13,11 @@ ______________________________________________________________________________
 ^w   : magic-map screen (wizard mode only)                        :     0
 a    : activate a wand, staff, or rod                             :     10*
 c    : close door                                                 :     2*
-d    : drop object at current location                            :     5*
+d    : drop an item (pack or equipped) at current location        :     5*
 e    : eat something                                              :     30
 f    : fire/throw something                                       :     5*
-g    : pick up object at current location                         :     10*
-i    : primary inventory mode (as per TOPINV option)              :  variable
+g    : pick up (a pile: checklist, ',' marks all)                 :     10*
+i    : inventory: equipment and pack in one list                  :  variable
 m    : cast a magic spell                                         :     20
 o    : open door                                                  :     5*
 p    : pick the pocket of an adjacent monster                     :     20*
@@ -26,6 +26,7 @@ r    : read a scroll                                              :     30*
 s    : search all around you, # of times = SEARCHNUM              :     20
 t    : talk to an adjacent monster                                :     10
 v    : vault over a few intervening spaces                        :     10*
+w    : wear/wield an item from the pack (slot chosen by type)     :     5+
 x    : examine a location                                         :     1
 z    : bash something (adjacent location)                         :     10
 A    : activate an item or artifact                               :     10
@@ -34,7 +35,6 @@ D    : disarm an adjacent trap                                    :     30
 E    : dismount (exit?) from your horse                           :     10*
 F    : set combat action sequence                                 :     0
 G    : give something to an adjacent monster                      :     15
-I    : secondary inventory mode (as per TOPINV option)            :  variable
 M    : move quickly to some discovered site (city only)           :  variable
 O    : set options                                                :     0
 P    : public license information                                 :     0
@@ -43,6 +43,7 @@ R    : rename character                                           :     0
 S    : save game and quit                                         :     0
 T    : dig a tunnel through a wall                                :     30*
 V    : version information                                        :     0
+W    : take off an equipped item (back to the pack)               :     2
 Z    : bash something (item carried)                              :     10*
 .    : rest a turn                                                :     10
 ,    : sleep some number of minutes                               :  60..6000
@@ -72,5 +73,10 @@ Enter: this command menu (arrows/8/2 move, Enter/5 choose)       :     0
 Questions with several answers (M, casting, shops, guilds, altars ...)
 open a list of all the choices, lettered a) b) c) and so on. Press a
 letter, or move with the arrows (8/2) and take one with Enter or space.
-ESCAPE backs out. In the inventory (i), arrows or 8/2 move a cursor and
-Enter opens a menu of what you can do with that item.
+ESCAPE backs out. The inventory (i) lists the equipment slots (lower-case
+letters) and then the pack (upper-case letters, A = top of the pack); a key
+or Enter opens a menu of what you can do with that item (use, equip, take
+off, drop, call). Every item prompt (quaff, read, zap, drop ...) offers the
+pack items too; reaching deep into the pack (* or ** in the list) takes extra
+time. Auto-pickup (PICKUP option) only takes money and items that stack with
+ones you carry.
